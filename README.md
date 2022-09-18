@@ -1,4 +1,4 @@
-# RobloxCheatApp
+# RobloxCheats
 cheating app for Roblox (macOS M1)
 
 ## Phantom Forces ESP
