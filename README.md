@@ -10,7 +10,7 @@ I will also try to add as many comments as I can in the future to explain my cod
  - Edit the code to your liking. The current cheat is set to Phantom Forces, change it if you feel like it.
  - Run <b>find_object_offsets()</b> in https://www.roblox.com/games/5332389196/Hack-Tests to update the offsets in the code. (You will not need to inject libESP.dylib for this)
  - Compile both for x86_64. On Apple Silicon Macs, choose to build for Rosetta.
- ![Build]
+ ![Build](https://github.com/notahacker8/RobloxCheats/blob/main/Build.png)
  - Also, root is not required! Yay! You can finally run a cheat without having to give root access! (The cheat runs with debugging privileges)
 
 ## Usage (Terminal)
