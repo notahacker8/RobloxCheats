@@ -11,7 +11,7 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 
 ## Usage (Terminal)
 DYLD_INSERT_LIBRARIES=(path to libESP.dylib) (path to RobloxPlayer) <br> <br>
-[See <b>robloxShell</b> for how I did it]<br>
+See [<b>robloxShell</b>](https://github.com/notahacker8/RobloxCheats/blob/main/robloxShell) for how I did it<br>
 
 <b>Have Fun!</b>
 
