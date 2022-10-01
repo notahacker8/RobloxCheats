@@ -7,7 +7,7 @@ Cheating tool for Roblox (macOS M1)
 
 ## Usage (Terminal)
 DYLD_INSERT_LIBRARIES=(path to libESP.dylib) (path to RobloxPlayer) <br> <br>
-[See robloxShell for how I did it]
+[See <b>robloxShell</b> for how I did it]
 
 
 ## Phantom Forces ESP
