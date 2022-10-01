@@ -7,7 +7,7 @@ This project was rebuilt to be more flexible with updates and crash the applicat
  - <b>libESP.dylib</b> controls all in-app inputs and UI
  - <b>_RobloxCheats</b> is the actual executable to run after libESP.dylib is injected into Roblox
  - Edit the code to your liking. The current cheat is set to Phantom Forces, change it if you feel like it.
- - Run <b>find_object_offsets()</b> in https://www.roblox.com/games/5332389196/Hack-Tests to update the offsets in the code.
+ - Run <b>find_object_offsets()</b> in https://www.roblox.com/games/5332389196/Hack-Tests to update the offsets in the code. (You will not need to inject libESP.dylib for this)
  - Also, root is not required! Yay! You can finally run a cheat without having to give root access! (The cheat runs with debugging privileges)
 
 ## Usage (Terminal)
