@@ -18,3 +18,6 @@ See [<b>robloxShell</b>](https://github.com/notahacker8/RobloxCheats/blob/main/r
 
 ## Phantom Forces ESP
 ![Phantom Forces ESP](https://github.com/notahacker8/RobloxCheatApp/blob/main/Phantom-Forces-ESP.png)
+
+## Those Who Remain Item ESP
+![Phantom Forces ESP](https://github.com/notahacker8/RobloxCheatApp/blob/main/Those-Who-Remain-Item-ESP.png)
