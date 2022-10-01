@@ -1,5 +1,6 @@
 # RobloxCheats
-Cheating tool for Roblox (macOS M1)
+Cheating tool for Roblox (macOS M1)<br>
+This is actually the 2nd version of the Roblox Cheat. The original is actually from my [<b>libHack.dylib project</b>](https://github.com/notahacker8/libHack)
 
 ## Notes
  - <b>libESP.dylib</b> controls all in-app inputs and UI
