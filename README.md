@@ -6,7 +6,7 @@ I will also try to add as many comments as I can in the future to explain my cod
 
 ## Notes
  - <b>libESP.dylib</b> controls all in-app inputs and UI
- - Change the <b>__INJECTED_DYLIB__</b> macro to the actual path of libESP.dylib
+ - Change the <b>_ _ INJECTED_DYLIB _ _</b> macro to the actual path of libESP.dylib
  - <b>_RobloxCheats</b> is the actual executable to run after libESP.dylib is injected into Roblox
  - Edit the code to your liking. The current cheat is set to Phantom Forces, change it if you feel like it.
  - Run <b>find_object_offsets()</b> in https://www.roblox.com/games/5332389196/Hack-Tests to update the offsets in the code. (You will not need to inject libESP.dylib for this)
