@@ -2,7 +2,6 @@
 Cheating tool for Roblox (macOS M1)<br>
 This is actually the 2nd version of the cheat. The original is actually from my [<b>libHack.dylib</b>](https://github.com/notahacker8/libHack) project.<br>
 This project was rebuilt to be more flexible with updates and crash the application less.<br>
-I will also try to add as many comments as I can in the future to explain my code as much as possible. (or if somehow forget how all of this works)
 
 ## Notes
  - <b>libESP.dylib</b> controls all in-app inputs and UI
