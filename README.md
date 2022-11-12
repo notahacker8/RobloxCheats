@@ -6,20 +6,16 @@ I will also try to add as many comments as I can in the future to explain my cod
 
 ## Notes
  - <b>libESP.dylib</b> controls all in-app inputs and UI
+  - <b>_RobloxCheats</b> is the actual executable to run after libESP.dylib is injected into Roblox
  - Change the <b>_ _ INJECTED_DYLIB _ _</b> macro to the actual path of libESP.dylib
- - <b>_RobloxCheats</b> is the actual executable to run after libESP.dylib is injected into Roblox
- - Edit the code to your liking. The current cheat is set to Phantom Forces, change it if you feel like it.
- - If the Roblox crashes with an <b>illegal instruction</b> error, retry.
  - Run <b>find_object_offsets()</b> in https://www.roblox.com/games/5332389196/Hack-Tests to update the offsets in the code. (You will not need to inject libESP.dylib for this)
- - Compile both for x86_64. On Apple Silicon Macs, choose to build for Rosetta.<br>
- ![Build](https://github.com/notahacker8/RobloxCheats/blob/main/Build.png)<br>
- - Also, root is not required! Yay! You can finally run a cheat without having to give root access! (The cheat runs with debugging privileges)
+ - Compile both for x86_64.
+ - root is not required for the cheat to work. However, SIP will have to be disabled for the cheat to work now.
 
 ## Usage (Terminal)
 DYLD_INSERT_LIBRARIES=(path to libESP.dylib) (path to RobloxPlayer) <br> <br>
-See [<b>robloxShell</b>](https://github.com/notahacker8/RobloxCheats/blob/main/robloxShell) for how I did it<br>
+See [<b>robloxShell</b>](https://github.com/notahacker8/RobloxCheats/blob/main/robloxShell) for an example<br>
 
-<b>Have Fun!</b>
 
 ## Phantom Forces ESP
 ![Phantom Forces ESP](https://github.com/notahacker8/RobloxCheatApp/blob/main/Phantom-Forces-ESP.png)
