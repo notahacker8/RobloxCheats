@@ -147,8 +147,11 @@ extern useconds_t ESP_USLEEP_TIME;
 useconds_t REFRESH_USLEEP_TIME = 5000000;
 extern useconds_t REFRESH_USLEEP_TIME;
 
-useconds_t AIMBOT_USLEEP_TIME = 30000;
+useconds_t AIMBOT_USLEEP_TIME = 300000;
 extern useconds_t AIMBOT_USLEEP_TIME;
+
+useconds_t INPUT_USLEEP_TIME = 300000;
+extern useconds_t INPUT_USLEEP_TIME;
 
 
 
@@ -290,16 +293,18 @@ void initialize(void)
     {
         for (;;)
         {
-            usleep(1000);
-            if (INPUT_QUEUE_FINISHED == false)
+            usleep(INPUT_USLEEP_TIME);
+            if (NSApp.isActive)
             {
-                for (int i = 0 ; i < INPUT_QUEUE_COUNT ; i++)
+                //printf("queue finished: %d\n", INPUT_QUEUE_FINISHED);
+                if (INPUT_QUEUE_FINISHED == false)
                 {
-                    if (NSApp.isActive)
+                    for (int i = 0 ; i < INPUT_QUEUE_COUNT ; i++)
                     {
                         if (i < 100)
                         {
                             Input input = INPUT_QUEUE[i];
+                            //printf("inputs[%d], input type: %d\n", i, input.type);
                             if (input.type == 0)
                             {
                                 CGPoint point = CGPointMake(input.x, NSApp.windows[input.window_index].contentView.frame.size.height - input.y + [NSApp.windows[input.window_index] titlebarHeight]);
@@ -327,16 +332,31 @@ void initialize(void)
                             usleep(input.duration);
                         }
                     }
+                    INPUT_QUEUE_COUNT = 0;
+                    INPUT_QUEUE_FINISHED = true;
                 }
-                INPUT_QUEUE_COUNT = 0;
-                INPUT_QUEUE_FINISHED = true;
             }
         }
     });
     
     
     
-    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            usleep(AIMBOT_USLEEP_TIME);
+            if (NSApp.isActive)
+            {
+                if (AIMBOT_ENABLED)
+                {
+                    CGPoint point = CGPointMake(AIMBOT_X, NSApp.windows[0].contentView.frame.size.height - AIMBOT_Y + [NSApp.windows[0] titlebarHeight]);
+                    moveMouseOnWindow(NSApp.windows[0], point);
+                    [NSApp.windows[0] sendEvent:[NSEvent mouseEventWithType:NSEventTypeMouseMoved location:NSPointFromCGPoint(point) modifierFlags:0 timestamp:0 windowNumber:0 context:NULL eventNumber:0 clickCount:0 pressure:0]];
+                }
+            }
+        }
+    });
     
     
 }
