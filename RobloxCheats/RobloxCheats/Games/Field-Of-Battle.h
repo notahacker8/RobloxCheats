@@ -1,45 +1,34 @@
 
 
+#define FOB_ALL_LEGENDARY_FILTER if (gv > 31)
+#define FOB_BAD_LEGENDARY_FILTER if (gv == 35 || gv == 36) //Spirit and Dragon Bone go brrrrrr..
+#define FOB_GOOD_LEGENDARY_FILTER if (gv > 31 && gv != 35 && gv != 36)
 
-void field_of_battle_cheat(task_t task)
+
+
+void field_of_battle_collect_legendary_gem(task_t task)
 {
-    static mach_msg_type_number_t data_cnt;
-    static vm_address_t read_data;
-    void* handle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
-    printf("%p\n", handle);
-    printf("%s\n", dlerror());
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB__);
-    
-    vm_offset_t esp_enabled_offset = gdso(handle, s_load_address, "ESP_ENABLED");
-    vm_offset_t max_esp_count_offset = gdso(handle, s_load_address, "MAX_ESP_COUNT");
-    vm_offset_t window_w_offset = gdso(handle, s_load_address, "WINDOW_W");
-    vm_offset_t window_h_offset = gdso(handle, s_load_address, "WINDOW_H");
-    vm_offset_t esp_usleep_time_offset = gdso(handle, s_load_address, "ESP_USLEEP_TIME");
-    vm_offset_t esp_box_hidden_array_offset = gdso(handle, s_load_address, "ESP_BOX_HIDDEN_ARRAY");
-    vm_offset_t esp_box_frame_array_offset = gdso(handle, s_load_address, "ESP_BOX_FRAME_ARRAY");
-    vm_offset_t esp_box_color_array_offset = gdso(handle, s_load_address, "ESP_BOX_COLOR_ARRAY");
-    
-    dlclose(handle);
-    
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB__);
-    
-    char esp_enabled = true;
-    vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, 1);
-    
-    vm_address_t esp_box_hidden_array = load_address + esp_box_hidden_array_offset;
-    vm_address_t esp_box_frame_array = load_address + esp_box_frame_array_offset;
-    vm_address_t esp_box_color_array = load_address + esp_box_color_array_offset;
-    
-    static float window_w;
-    static float window_h;
-    
+    printf("- FIELD OF BATTLE (LEGENDARY GEM COLLECTOR) -\n");
+    printf("BEST USED ON AN ALT\n");
+
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
-    vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
     vm_address_t unbreakable_folder = rbx_instance_find_first_child(task, workspace, "Unbreakable");
     vm_address_t projectiles_folder = rbx_instance_find_first_child(task, unbreakable_folder, "Projectiles");
     
-    static char* gem_dictionary[60];
+    vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
+    vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
+    
+    static char should_exit = false;
+    static char gem_found = false;
+    static vm_address_t gem = 0;
+    static vector3_t gem_pos;
+    gem_pos = vector3_init(-2050, 758, -1940); //Middle of lobby, up where the gems fall.
+    
+    static char* gem_dictionary[100];
+    gem_dictionary[1] = "Red Diamond";
+    gem_dictionary[2] = "Grandidierite";
+    gem_dictionary[3] = "Poudretteite";
     gem_dictionary[4] = "Benitoite";
     gem_dictionary[5] = "Tanzanite";
     gem_dictionary[6] = "Alexandrite";
@@ -67,56 +56,386 @@ void field_of_battle_cheat(task_t task)
     gem_dictionary[30] = "Olivine";
     gem_dictionary[31] = "Copal";
     gem_dictionary[32] = "Mithril";
+    gem_dictionary[33] = "Demonite";
+    gem_dictionary[34] = "Fury Stone";
+    gem_dictionary[35] = "Dragon Bone";
+    gem_dictionary[36] = "Spirit Shard";
     gem_dictionary[42] = "Titan Core";
     
-    //rbx_print_descendants(task, unbreakable_folder, 0);
-    //rbx_print_children_profiles(task, unbreakable_folder);
     
-    /*
-    long unbreakable_count = 0;
-    vm_address_t* unbreakables = rbx_instance_get_children(task, unbreakable_folder, &unbreakable_count);
-    for (long i = 0 ; i < unbreakable_count ; i++)
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
-        vm_address_t unbreakable = unbreakables[i];
-        char* u_name;
-        char u_name_len;
-        if (unbreakable)
+        for (;;)
         {
-            if (strcmp(rbx_instance_get_name(task, unbreakable, &u_name_len), "Ore") == 0)
+            if (gem_found == true)
             {
-                long child_count = 0;
-                vm_address_t* children = rbx_instance_get_children(task, unbreakable, &child_count);
-                for (long x = 0 ; x < child_count ; x++)
+                vm_address_t gem_parent = rbx_instance_get_parent(task, gem);
+                if (gem_parent)
                 {
-                    vm_address_t child = children[x];
-                    if (child)
+                    rbx_cframe_t gem_cf = rbx_basepart_get_cframe(task, gem);
+                    gem_pos = gem_cf.pos;
+                }
+                else
+                {
+                    bzero(&gem_pos, sizeof(vector3_t));
+                    should_exit = true;
+                }
+            }
+            usleep(10);
+        }
+    });
+    
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            long projectile_count = 0;
+            rbx_child_t* projectiles = rbx_instance_get_children(task, projectiles_folder, &projectile_count);
+            if (projectiles)
+            {
+                
+                vm_address_t character = rbx_player_get_character(task, local_player);
+                vm_address_t hrp = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
+                rbx_basepart_set_gravity(task, hrp, 0);
+                rbx_cframe_t cf = rbx_basepart_get_cframe(task, hrp);
+                cf.pos = gem_pos;
+                rbx_basepart_set_cframe(task, hrp, &cf);
+                
+                if (gem_found == false)
+                {
+                    printf(" > SCANNING GEMS...\n");
+                }
+                else
+                {
+                    if (should_exit == true)
                     {
-                        char* c_name;
-                        char c_name_len;
-                        if (strcmp(rbx_instance_get_name(task, child, &c_name_len), "Gem") == 0)
+                        printf(" > GEM COLLECTED SUCCESSFULLY!\n > EXITING...");
+                        exit(0);
+                    }
+                }
+                
+                for (long i = 0 ; i < projectile_count ; i++)
+                {
+                    vm_address_t projectile = projectiles[i].child_address;
+                    vm_address_t gem_type = rbx_instance_find_first_child(task, projectile, "GemType");
+                    if (gem_type)
+                    {
+                        long gv = rbx_intvalue_get_value(task, gem_type);
+                        FOB_ALL_LEGENDARY_FILTER
                         {
-                            vm_address_t gem = child;
-                            vm_address_t hitby = rbx_instance_find_first_child(task, gem, "HitBy");
-                            vm_address_t gemtype = rbx_instance_find_first_child(task, gem, "GemType");
-                            long gtv = rbx_intvalue_get_value(task, gemtype);
-                            if (gem_dictionary[gtv] == NULL)
+                            printf(" > GEM FOUND!!! (GemType: %ld) (Name: %s)\n", gv, gem_dictionary[gv]);
+                            if (gem_found == false)
                             {
-                                if (gtv != 0)
-                                {
-                                    printf("unlisted gem type: %ld\n", gtv);
-                                }
+                                gem = projectile;
                             }
-                            if (hitby)
+                            gem_found = true;
+                        }
+                    }
+                }
+                
+                vm_deallocate(mach_task_self_, (vm_address_t)projectiles, projectile_count * sizeof(rbx_child_t));
+            }
+            usleep(20000);
+        }
+    });
+   
+    
+}
+
+void fob_equip_tool(task_t task,
+                    vm_address_t load_address,
+                    vm_address_t input_queue_offset,
+                    vm_address_t input_queue_count_offset,
+                    vm_address_t input_queue_finished_offset,
+                    int keycode)
+{
+    static int input_count = 2;
+    Input inputs[input_count];
+    inputs[0].type = 1;
+    inputs[0].duration = 10000;
+    inputs[0].keycode = keycode;
+    inputs[0].window_index = 0;
+    
+    inputs[1].type = 2;
+    inputs[1].duration = 0;
+    inputs[1].keycode = keycode;
+    inputs[1].window_index = 0;
+    
+    char f = 0;
+    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
+    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
+    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, 1);
+    
+    wait_until_input_queue_finished(task, load_address + input_queue_finished_offset, 1000);
+    
+}
+
+void fob_click(task_t task,
+               vm_address_t load_address,
+               vm_address_t input_queue_offset,
+               vm_address_t input_queue_count_offset,
+               vm_address_t input_queue_finished_offset)
+{
+    static int input_count = 2;
+    Input inputs[input_count];
+    
+    inputs[0].type = 3;
+    inputs[0].duration = 10000;
+    inputs[0].window_index = 0;
+    inputs[0].x = 200;
+    inputs[0].y = 200;
+    
+    inputs[1].type = 4;
+    inputs[1].duration = 0;
+    inputs[1].window_index = 0;
+    inputs[1].x = 200;
+    inputs[1].y = 200;
+    
+    char f = 0;
+    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
+    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
+    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, 1);
+    
+    wait_until_input_queue_finished(task, load_address + input_queue_finished_offset, 1000);
+}
+
+
+void field_of_battle_auto_farm(task_t task)
+{
+    
+    void* dlhandle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
+    
+    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB__);
+    
+    vm_offset_t input_usleep_time_offset = gdso(dlhandle, s_load_address, "INPUT_USLEEP_TIME");
+    vm_offset_t input_queue_offset = gdso(dlhandle, s_load_address, "INPUT_QUEUE");
+    vm_offset_t input_queue_count_offset = gdso(dlhandle, s_load_address, "INPUT_QUEUE_COUNT");
+    vm_offset_t input_queue_finished_offset = gdso(dlhandle, s_load_address, "INPUT_QUEUE_FINISHED");
+    
+    dlclose(dlhandle);
+    
+    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB__);
+    int iut = 100000;
+    vm_write(task, load_address + input_usleep_time_offset, (vm_address_t)&iut, sizeof(useconds_t));
+    
+    printf("- FIELD OF BATTLE (AUTO FARM) -\n");
+    printf("(USE A SWORD FOR BEST RESULTS)\n");
+    
+    vm_address_t game = rbx_find_game_address(task);
+    vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
+    vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
+    vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
+    vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
+    vm_address_t unbreakable_folder = rbx_instance_find_first_child(task, workspace, "Unbreakable");
+    vm_address_t characters_folder = rbx_instance_find_first_child(task, unbreakable_folder, "Characters");
+    vm_address_t orc_char_folder = rbx_instance_find_first_child(task, characters_folder, "Orc");
+    vm_address_t human_char_folder = rbx_instance_find_first_child(task, characters_folder, "Human");
+    
+    static float y_offset = -40;
+    static vm_address_t enemy_char_folder = 0;
+    static vm_address_t prev_npc = 0;
+    static vm_address_t npc = 0;
+    static vm_address_t npc_torso = 0;
+    static vm_address_t npc_head = 0;
+    static vm_address_t my_char = 0;
+    static vm_address_t my_hrp = 0;
+    static vm_address_t tool = 0;
+    static vm_address_t delay1numbervalue = 0;
+    static double delay1numbervalue_value = 0.0f;
+    static useconds_t target_switch_delay_time = 0; //This will change by itself
+    static vm_address_t handle = 0;
+    static vm_address_t handle_cframe_address = 0;
+    static rbx_cframe_t npc_cf;
+    
+    static rbx_cframe_t tool_grip;
+    tool_grip.r0 = 1;
+    tool_grip.r11 = 1;
+    tool_grip.r22 = 1;
+    tool_grip.pos.y = y_offset;
+    
+    static char safe_to_attack = true; //Lag switch-kick prevention
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            my_char = rbx_player_get_character(task, local_player);
+            my_hrp = rbx_instance_find_first_child(task, my_char, "HumanoidRootPart");
+            tool = rbx_instance_find_first_child_of_class(task, my_char, "Tool");
+            delay1numbervalue = rbx_instance_find_first_child(task, tool, "Delay1");
+            delay1numbervalue_value = rbx_numbervalue_get_value(task, delay1numbervalue);
+            target_switch_delay_time = (useconds_t)(delay1numbervalue_value * 1000000.0f);
+            handle = rbx_instance_find_first_child(task, tool, "Handle");
+            handle_cframe_address = rbx_basepart_get_properties_address(task, handle) + RBX_PART_PROPERTIES_CFRAME_OFFSET;
+            
+            enemy_char_folder = 0;
+            if (rbx_instance_get_parent(task, my_char) == orc_char_folder)
+            {
+                enemy_char_folder = human_char_folder;
+            }
+            if (rbx_instance_get_parent(task, my_char) == human_char_folder)
+            {
+                enemy_char_folder = orc_char_folder;
+            }
+            
+            long l = 0;
+            rbx_child_t* c = rbx_instance_get_children(task, enemy_char_folder, &l);
+            if (c)
+            {
+                for (long i = l ; i > -1 ; i--) //Get the lower npc first
+                {
+                    vm_address_t g = c[i].child_address;
+                    vm_address_t isnpc = rbx_instance_find_first_child(task, g, "IsNpc");
+                    bool isnpc_value = rbx_boolvalue_get_value(task, isnpc);
+                    if (isnpc && isnpc_value == 1)
+                    {
+                        vm_address_t h = rbx_instance_find_first_child(task, g, "Head");
+                        vm_address_t w = rbx_instance_find_first_child_of_class(task, h, "Weld");
+                        if (w)
+                        {
+                            vm_address_t t = rbx_instance_find_first_child(task, g, "Torso");
+                            if (npc != g)
                             {
-                                vm_address_t hitby_value = rbx_intvalue_get_value(task, hitby);
-                                char pnl;
-                                char* player_name = rbx_instance_get_name(task, hitby_value, &pnl);
-                                if (player_name)
+                                safe_to_attack = false;
+                                prev_npc = npc;
+                                usleep(target_switch_delay_time); //Wait between switching targets so we don't get caught "lag switching"
+                                safe_to_attack = true;
+                            }
+                            npc = g;
+                            npc_head = h;
+                            npc_torso = t;
+                            
+                            i = 0;
+                        }
+                    }
+                }
+            }
+            vm_deallocate(mach_task_self_, (vm_address_t)c, l * sizeof(rbx_child_t));
+            usleep(200000);
+        }
+    });
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            usleep(1000);
+            rbx_camera_set_camera_subject(task, camera, npc);
+            rbx_cframe_t _npc_cf = rbx_basepart_get_cframe(task, npc_torso);
+            rbx_cframe_t my_hrp_cf = rbx_basepart_get_cframe(task, my_hrp);
+            my_hrp_cf.pos.x = _npc_cf.pos.x;
+            my_hrp_cf.pos.y = _npc_cf.pos.y + y_offset;
+            my_hrp_cf.pos.z = _npc_cf.pos.z;
+            rbx_basepart_set_cframe(task, my_hrp, &my_hrp_cf);
+            npc_cf = _npc_cf;
+            //rbx_print_descendants(task, prev_npc, 0, 0);
+            //rbx_print_descendants(task, npc, 0, 0);
+        }
+    });
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            if (safe_to_attack) //So we don't hit anything on accident (to prevent getting caught "lag switching")
+            {
+                vm_write(task, handle_cframe_address, (vm_offset_t)&npc_cf, sizeof(npc_cf));
+            }
+            usleep(5);
+        }
+    });
+    
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            
+            rbx_basepart_set_gravity(task, my_hrp, 0);
+            
+            if (tool == 0)
+            {
+                ///https://eastmanreference.com/complete-list-of-applescript-key-codes
+                ///I press 5 to equip my sword (Heaven's Edge)
+                fob_equip_tool(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, 23);
+            }
+            
+            if (safe_to_attack)
+            {
+                fob_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset);
+            }
+            
+            long plrcount = 0;
+            rbx_child_t* plrs = rbx_instance_get_children(task, players_service, &plrcount);
+            vm_deallocate(mach_task_self_, (vm_address_t)plrs, plrcount * sizeof(rbx_child_t));
+            
+            if (plrcount > 1)
+            {
+                rbx_basepart_set_gravity(task, my_hrp, 200);
+                rbx_cframe_t cf;
+                rbx_basepart_set_cframe(task, my_hrp, &cf);
+                printf("MULTIPLE PLAYERS DETECTED!!!\n > EXITING...\n");
+                exit(0);
+            }
+            
+            usleep(100000);
+        }
+    });
+}
+
+
+
+
+
+
+//rbx_print_descendants(task, unbreakable_folder, 0);
+//rbx_print_children_profiles(task, unbreakable_folder);
+
+/*
+long unbreakable_count = 0;
+vm_address_t* unbreakables = rbx_instance_get_children(task, unbreakable_folder, &unbreakable_count);
+for (long i = 0 ; i < unbreakable_count ; i++)
+{
+    vm_address_t unbreakable = unbreakables[i];
+    char* u_name;
+    char u_name_len;
+    if (unbreakable)
+    {
+        if (strcmp(rbx_instance_get_name(task, unbreakable, &u_name_len), "Ore") == 0)
+        {
+            long child_count = 0;
+            vm_address_t* children = rbx_instance_get_children(task, unbreakable, &child_count);
+            for (long x = 0 ; x < child_count ; x++)
+            {
+                vm_address_t child = children[x];
+                if (child)
+                {
+                    char* c_name;
+                    char c_name_len;
+                    if (strcmp(rbx_instance_get_name(task, child, &c_name_len), "Gem") == 0)
+                    {
+                        vm_address_t gem = child;
+                        vm_address_t hitby = rbx_instance_find_first_child(task, gem, "HitBy");
+                        vm_address_t gemtype = rbx_instance_find_first_child(task, gem, "GemType");
+                        long gtv = rbx_intvalue_get_value(task, gemtype);
+                        if (gem_dictionary[gtv] == NULL)
+                        {
+                            if (gtv != 0)
+                            {
+                                printf("unlisted gem type: %ld\n", gtv);
+                            }
+                        }
+                        if (hitby)
+                        {
+                            vm_address_t hitby_value = rbx_intvalue_get_value(task, hitby);
+                            char pnl;
+                            char* player_name = rbx_instance_get_name(task, hitby_value, &pnl);
+                            if (player_name)
+                            {
+                                if (strcmp(player_name, "blockmincer") == 0)
                                 {
-                                    if (strcmp(player_name, "blockmincer") == 0)
-                                    {
-                                        printf("GemType: %ld (%s)\n", gtv, gem_dictionary[gtv]);
-                                    }
+                                    printf("GemType: %ld (%s)\n", gtv, gem_dictionary[gtv]);
                                 }
                             }
                         }
@@ -125,133 +444,5 @@ void field_of_battle_cheat(task_t task)
             }
         }
     }
-     */
-    
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
-    {
-        for (;;)
-        {
-            //printf("GEMS: \n");
-            long projectile_count = 0;
-            vm_address_t* projectiles = rbx_instance_get_children(task, projectiles_folder, &projectile_count);
-            if (projectiles)
-            {
-                for (long i = 0 ; i < projectile_count ; i++)
-                {
-                    vm_address_t projectile = projectiles[i];
-                    vm_address_t gem_type = rbx_instance_find_first_child(task, projectile, "GemType");
-                    if (gem_type)
-                    {
-                        long gv = rbx_intvalue_get_value(task, gem_type);
-                        //printf("%ld\n", rbx_intvalue_get_value(task, gem_type));
-                        if (gv == 42)
-                        {
-                            printf("<b>LEGENDARY FOUND</b><br>\n");
-                        }
-                        if (gv > 31 && gv < 37)
-                        {
-                            printf("<b>LEGENDARY FOUND</b><br>\n");
-                        }
-                        rbx_rgb_t gem_color = rbx_basepart_get_color(task, projectile);
-                        printf("<b style=\"color:#%02hhx%02hhx%02hhx\">%ld (%s)</b></br>\n", gem_color.r, gem_color.g, gem_color.b, gv, gem_dictionary[gv]);
-                    }
-                }
-                free(projectiles);
-            }
-            //printf("\n");
-            sleep(2);
-        }
-    });
-    
-    /*
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
-    {
-        for (;;)
-        {
-            //printf("GEMS: \n");
-            long projectile_count = 0;
-            vm_address_t* projectiles = rbx_instance_get_children(task, projectiles_folder, &projectile_count);
-            if (projectiles)
-            {
-                for (long i = 0 ; i < projectile_count ; i++)
-                {
-                    vm_address_t projectile = projectiles[i];
-                    vm_address_t gem_type = rbx_instance_find_first_child(task, projectile, "GemType");
-                    if (gem_type)
-                    {
-                        long gv = rbx_intvalue_get_value(task, gem_type);
-                        vm_address_t legendary_gem = 0;
-                        if (gv == 42)
-                        {
-                            legendary_gem = projectile;
-                        }
-                        if (gv > 31 && gv < 37)
-                        {
-                            legendary_gem = projectile;
-                        }
-                        if (legendary_gem)
-                        {
-                            printf("<b>%s</b><br>\n", "LEGENDARY_FOUND");
-                            rbx_cframe_t gem_cframe = rbx_basepart_get_cframe(task, legendary_gem);
-                            rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                            custom_rbx_world_to_screen_info_t wtsi;
-                            
-                            kern_return_t kr;
-                            kr = vm_read(task, load_address + window_w_offset, 4, &read_data, &data_cnt);
-                            if (kr == KERN_SUCCESS)
-                            {
-                                window_w = *(float*)read_data;
-                                vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
-                            }
-                            
-                            vm_read(task, load_address + window_h_offset, 4, &read_data, &data_cnt);
-                            if (kr == KERN_SUCCESS)
-                            {
-                                window_h = *(float*)read_data;
-                                vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
-                            }
-                            
-                            float fov = rbx_camera_get_field_of_view(task, camera);
-                            wtsi = rbx_world_to_screen_point(camera_cframe, fov, gem_cframe.pos, window_w, window_h);
-                            char hidden = true;
-                            if (isnan(wtsi.x) || isnan(wtsi.y))
-                            {
-                                hidden = true;
-                                wtsi.x = 0;
-                                wtsi.y = 0;
-                                vm_write(task, esp_box_hidden_array, (vm_offset_t)&hidden, 1);
-                            }
-                            else
-                            {
-                                if (isfinite(wtsi.x) && isfinite(wtsi.y))
-                                {
-                                    hidden = false;
-                                    vm_write(task, esp_box_hidden_array, (vm_offset_t)&hidden, 1);
-                                    
-                                    ESP_Frame frame;
-                                    frame.x = wtsi.x - 10;
-                                    frame.y = wtsi.y - 10;
-                                    frame.w = 20;
-                                    frame.h = 20;
-                                    
-                                    ESP_Color color;
-                                    color.r = 0;
-                                    color.g = 1;
-                                    color.b = 0;
-                                    color.a = 1;
-                                    
-                                    vm_write(task, esp_box_frame_array, (vm_address_t)&frame, sizeof(ESP_Frame));
-                                    vm_write(task, esp_box_color_array, (vm_address_t)&color, sizeof(ESP_Color));
-                                }
-                            }
-                        }
-                    }
-                }
-                free(projectiles);
-            }
-            usleep(1000);
-        }
-    });
-    */
-    
 }
+ */

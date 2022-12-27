@@ -34,6 +34,8 @@ void find_object_offsets(task_t task)
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
     vm_address_t xaxis = rbx_instance_find_first_child(task, workspace, "XAxis");
+    vm_address_t motor6d = rbx_instance_find_first_child_of_class(task, xaxis, "Motor6D");
+    vm_address_t xaxis2 = rbx_instance_find_first_child(task, workspace, "XAxis2");
     vm_address_t rs = rbx_instance_find_first_child_of_class(task, game, "ReplicatedStorage");
     vm_address_t values_folder = rbx_instance_find_first_child(task, workspace, "Values");
     vm_address_t short_string_value = rbx_instance_find_first_child(task, values_folder, "ShortStringValue");
@@ -43,25 +45,31 @@ void find_object_offsets(task_t task)
     vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
     vm_address_t teams_service = rbx_instance_find_first_child_of_class(task, game, "Teams");
     vm_address_t my_team = rbx_instance_find_first_child(task, teams_service, "Amongus - red");
+    
     long plr_count = 0;
-    vm_address_t* plrs = rbx_instance_get_children(task, players_service, &plr_count);
-    vm_address_t my_plr = plrs[0];
+    rbx_child_t* plrs = rbx_instance_get_children(task, players_service, &plr_count);
+    vm_address_t my_plr = plrs[0].child_address;
+    
     vm_address_t plr_gui = rbx_instance_find_first_child(task, my_plr, "PlayerGui");
     vm_address_t screen_gui = rbx_instance_find_first_child(task, plr_gui, "ScreenGui");
     vm_address_t text_label = rbx_instance_find_first_child(task, screen_gui, "TextLabel");
     char my_plr_name_len;
     char* my_plr_name = rbx_instance_get_name(task, my_plr, &my_plr_name_len);
     vm_address_t my_character = rbx_instance_find_first_child(task, workspace, my_plr_name);
-    vm_address_t tool = rbx_instance_find_first_child_of_class(task, my_character, "Tool");
+    vm_address_t backpack = rbx_instance_find_first_child(task, my_plr, "Backpack");
+    vm_address_t tool = rbx_instance_find_first_child(task, backpack, "ClassicSword");
     vm_address_t hrp = rbx_instance_find_first_child(task, my_character, "HumanoidRootPart");
     vm_address_t humanoid = rbx_instance_find_first_child(task, my_character, "Humanoid");
-    vm_deallocate(mach_task_self_, (vm_address_t)my_plr_name, my_plr_name_len);
     
     printf("//values folder: %p\n", values_folder);
     printf("//camera: %p\n", camera);
     printf("//xaxis: %p\n", xaxis);
+    printf("//motor6d: %p\n", motor6d);
+    printf("//xaxis2: %p\n", xaxis2);
     printf("//humanoid: %p\n", humanoid);
     printf("//hrp: %p\n", hrp);
+    printf("//tool: %p\n", tool);
+    printf("//text label: %p\n", text_label);
     
     
     rbx_rgb_t color = rbx_basepart_get_color(task, xaxis);
@@ -78,21 +86,21 @@ void find_object_offsets(task_t task)
         int a = ((int*)(read_data + i))[0];
         if (a == 0x3f9c61ab)
         {
-            printf("#define %s %p\n", "RBX_CAMERA_FOV_OFFSET", i);
+            printf("#define %s %p\n", "RBX_CAMERA_FOV_OFFSET", (void*)i);
         }
         vm_address_t b = ((vm_address_t*)(read_data + i))[0];
         if (b == humanoid)
         {
-            printf("#define %s %p\n", "RBX_CAMERA_CAMERA_SUBJECT_OFFSET", i);
+            printf("#define %s %p\n", "RBX_CAMERA_CAMERA_SUBJECT_OFFSET", (void*)i);
         }
-        if (memcmp(read_data + i, &_v1, sizeof(_v1)) == 0)
+        if (memcmp((void*)(read_data + i), &_v1, sizeof(_v1)) == 0)
         {
             float _0 = ((int*)(read_data + i - 4))[0];
             float _1 = ((int*)(read_data + i + sizeof(rbx_cframe_t) - 4 + sizeof(rbx_cframe_t)))[0];
             if (_0 == _1 && camera_cframe_offset_found == false)
             {
                 camera_cframe_offset_found = true;
-                printf("#define %s %p\n", "RBX_CAMERA_CFRAME_0_OFFSET", i - (sizeof(rbx_cframe_t)));
+                printf("#define %s %p\n", "RBX_CAMERA_CFRAME_0_OFFSET", (void*)(i - (sizeof(rbx_cframe_t))));
             }
         }
     }
@@ -105,17 +113,17 @@ void find_object_offsets(task_t task)
         vm_address_t a = ((vm_address_t*)(read_data + i))[0];
         if (a == my_team)
         {
-            printf("#define %s %p\n", "RBX_PLAYER_TEAM_OFFSET", i);
+            printf("#define %s %p\n", "RBX_PLAYER_TEAM_OFFSET", (void*)i);
         }
         if (a == my_character)
         {
-            printf("#define %s %p\n", "RBX_PLAYER_CHARACTER_OFFSET", i);
+            printf("#define %s %p\n", "RBX_PLAYER_CHARACTER_OFFSET", (void*)i);
         }
     }
     vm_deallocate(mach_task_self_, read_data, data_cnt);
     
-    size = 0x300;
-    kr = vm_read(task, hrp, size, &read_data, &data_cnt);
+    size = 0x200;
+    kr = vm_read(task, xaxis, size, &read_data, &data_cnt);
     char part_prop_grav_offset_found = false;
     char part_prop_size_offset_found = false;
     for (long i = 0 ; i < size/8 ; i++)
@@ -144,7 +152,7 @@ void find_object_offsets(task_t task)
                         b = ((int*)_rd)[x + 2];
                         if (b == 0x3f800000 && part_prop_size_offset_found == false)
                         {
-                            part_prop_size_offset_found == true;
+                            part_prop_size_offset_found = true;
                             printf("#define %s %p\n", "RBX_PART_PROPERTIES_SIZE_OFFSET", (x * 4));
                         }
                     }

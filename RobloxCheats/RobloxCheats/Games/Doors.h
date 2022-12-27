@@ -264,8 +264,7 @@ void doors_cheat(task_t task)
                 {
                     camera_cframe = rbx_camera_get_cframe(task, camera);
                     rbx_cframe_t door_cframe = rbx_basepart_get_cframe(task, door);
-                    rbx_draw_esp_box(task, door_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, door_esp_color, fov, 5, 7.75, 0, 0, window_w, window_h, esp_index, true);
-                    vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
+                    rbx_draw_esp_box(task, door_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width, door_esp_color, fov, 5, 7.75, 0, 0, window_w, window_h, esp_index, true);
                     esp_index++;
                 }
             }
@@ -280,8 +279,7 @@ void doors_cheat(task_t task)
                     {
                         camera_cframe = rbx_camera_get_cframe(task, camera);
                         rbx_cframe_t hint_book_cframe = rbx_basepart_get_cframe(task, hint_book);
-                        rbx_draw_esp_box(task, hint_book_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, hint_book_esp_color, fov, 0.75, 2, 0, 0, window_w, window_h, esp_index, true);
-                        vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
+                        rbx_draw_esp_box(task, hint_book_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width, hint_book_esp_color, fov, 0.75, 2, 0, 0, window_w, window_h, esp_index, true);
                         esp_index++;
                     }
                 }
@@ -294,8 +292,7 @@ void doors_cheat(task_t task)
                 {
                     camera_cframe = rbx_camera_get_cframe(task, camera);
                     rbx_cframe_t key_cframe = rbx_basepart_get_cframe(task, key);
-                    rbx_draw_esp_box(task, key_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, key_esp_color, fov, 2, 2, 0, 0, window_w, window_h, esp_index, true);
-                    vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
+                    rbx_draw_esp_box(task, key_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width, key_esp_color, fov, 2, 2, 0, 0, window_w, window_h, esp_index, true);
                     esp_index++;
                 }
             }
@@ -307,8 +304,7 @@ void doors_cheat(task_t task)
                 {
                     camera_cframe = rbx_camera_get_cframe(task, camera);
                     rbx_cframe_t lever_cframe = rbx_basepart_get_cframe(task, lever);
-                    rbx_draw_esp_box(task, lever_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, lever_esp_color, fov, 1.5, 2, 0, 0, window_w, window_h, esp_index, true);
-                    vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
+                    rbx_draw_esp_box(task, lever_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width,lever_esp_color, fov, 1.5, 2, 0, 0, window_w, window_h, esp_index, true);
                     esp_index++;
                 }
             }
@@ -336,8 +332,7 @@ void doors_cheat(task_t task)
                     camera_cframe = rbx_camera_get_cframe(task, camera);
                     rbx_cframe_t my_hrp_cframe = rbx_basepart_get_cframe(task, my_hrp);
                     rbx_cframe_t monster_cframe = rbx_basepart_get_cframe(task, monster_part);
-                    rbx_draw_esp_box(task, monster_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, monster_esp_color, fov, 5, 5, 0, 0, window_w, window_h, esp_index, true);
-                    vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
+                    rbx_draw_esp_box(task, monster_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width, monster_esp_color, fov, 5, 5, 0, 0, window_w, window_h, esp_index, true);
                     float dist = vector3_dist_dif(my_hrp_cframe.pos, monster_cframe.pos);
                     sprintf(current_event, current_event_format, dist);
                     esp_index++;

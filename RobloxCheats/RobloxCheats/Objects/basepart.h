@@ -62,7 +62,7 @@ void rbx_basepart_set_cframe(task_t task, vm_address_t basepart, rbx_cframe_t* c
 {
     if (basepart == 0) {return;}
     vm_address_t p_a = rbx_basepart_get_properties_address(task, basepart);
-    vm_write(task, p_a + RBX_PART_PROPERTIES_CFRAME_OFFSET, (vm_address_t)&cf, sizeof(rbx_cframe_t));
+    vm_write(task, p_a + RBX_PART_PROPERTIES_CFRAME_OFFSET, (vm_address_t)cf, sizeof(rbx_cframe_t));
     return;
 }
 

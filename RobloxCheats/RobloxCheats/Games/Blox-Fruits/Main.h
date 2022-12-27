@@ -40,7 +40,6 @@ void blox_fruits_cheat(task_t task)
     
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
-    vm_address_t map_model = rbx_instance_find_first_child(task, workspace, "Map");
     
     vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
     vm_address_t players = rbx_instance_find_first_child_of_class(task, game, "Players");
@@ -53,8 +52,6 @@ void blox_fruits_cheat(task_t task)
     blox_fruit_esp_color.g = 1;
     blox_fruit_esp_color.b = 1;
     blox_fruit_esp_color.a = 1;
-    
-    //rbx_print_children_profiles(task, workspace);
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
@@ -84,26 +81,26 @@ void blox_fruits_cheat(task_t task)
     {
         for (;;)
         {
+            printf(" -> SEARCHING FOR FRUITS\n");
             long workspace_child_count = 0;
-            vm_address_t* workspace_children = rbx_instance_get_children(task, workspace, &workspace_child_count);
+            rbx_child_t* workspace_children = rbx_instance_get_children(task, workspace, &workspace_child_count);
             int fruit_index = 0;
             if (workspace_children)
             {
                 for (int i = 0 ; i < workspace_child_count ; i++)
                 {
-                    vm_address_t workspace_child = workspace_children[i];
+                    vm_address_t workspace_child = workspace_children[i].child_address;
                     vm_address_t fruit_parent = workspace_child;
                     vm_address_t fruit = rbx_instance_find_first_child(task, workspace_child, "Fruit");
                     vm_address_t handle = rbx_instance_find_first_child(task, workspace_child, "Handle");
                     if (fruit)
                     {
-                        //rbx_print_descendants(task, fruit_parent, 0);
                         fruits[fruit_index] = handle;
                         fruit_parents[fruit_index] = fruit_parent;
                         fruit_index++;
                     }
                 }
-                free(workspace_children);
+                vm_deallocate(mach_task_self_, (vm_address_t)workspace_children, workspace_child_count * sizeof(rbx_child_t));
                 if (fruit_index < 21)
                 {
                     bzero((void*)fruits + (fruit_index * 8), (20 - fruit_index) * 8);
@@ -147,6 +144,8 @@ void blox_fruits_cheat(task_t task)
                     vm_write(task, esp_box_text_array + (__espi * 50), (vm_address_t)dist_str, 50);
                     vm_deallocate(mach_task_self_, (vm_address_t)fruit_name, fnl);
                     printf("%s\n", dist_str);
+                    
+                    //STOP THE CHEAT IF A FRUIT IS FOUND THAT YOU PLAN ON PICKING UP!!!!!!!!!!!!!!!!!!!!
                     //rbx_print_children_profiles(task, fruits_parents[i]);
                     //rbx_camera_set_camera_subject(task, camera, character);
                     rbx_camera_set_camera_subject(task, camera, fruit);

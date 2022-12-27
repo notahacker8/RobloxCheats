@@ -1,9 +1,9 @@
 
-#define RBX_ARSENAL_MAX_PLAYER_COUNT 16
+#define RBX_WEAPONRY_MAX_PLAYER_COUNT 20
 
-void arsenal_cheat(task_t task)
+void weaponry_cheat(task_t task)
 {
-    printf("- ARSENAL -\n");
+    printf("- WEAPONRY -\n");
     static mach_msg_type_number_t data_cnt;
     
     void* handle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
@@ -47,15 +47,12 @@ void arsenal_cheat(task_t task)
     
     vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
     
-    static vm_address_t enemy_heads[RBX_ARSENAL_MAX_PLAYER_COUNT];
+    static vm_address_t enemy_heads[RBX_WEAPONRY_MAX_PLAYER_COUNT];
     static long enemy_count = 0;
     
     static vm_address_t closest_enemy_head;
     static char closest_enemy_exists = false;
     static const float max_delta_ratio = 0.125;
-    static const float interpolation = 3;  //1 = snap-on ; 3 = rough (recommended) ; 10 = smooth (not for semi-automatics)
-    
-    static vm_address_t hackula_head;
     
     static ESP_Color esp_color;
     esp_color.r = 0;
@@ -63,16 +60,6 @@ void arsenal_cheat(task_t task)
     esp_color.b = 0;
     esp_color.a = 1;
     
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
-    {
-        for (;;)
-        {
-            sleep(1);
-            vm_address_t map = rbx_instance_find_first_child(task, workspace, "Map");
-            vm_address_t hackula = rbx_instance_find_first_child(task, map, "Hackula");
-            hackula_head = rbx_instance_find_first_child(task, hackula, "Head");
-        }
-    });
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
@@ -94,74 +81,60 @@ void arsenal_cheat(task_t task)
                 vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
             }
             
-            if (hackula_head)
+            bool __cee = false;
+            float old_dist = 999999;
+            int enemy_head_index = 0;
+            
+            long player_count = 0;
+            rbx_child_t* player_list = rbx_instance_get_children(task, players_service, &player_count);
+            if (player_list)
             {
-                if (rbx_instance_get_parent(task, hackula_head))
+                for (int i = 0 ; i < player_count ; i++)
                 {
-                    closest_enemy_head = hackula_head;
-                    closest_enemy_exists = true;
-                    enemy_heads[0] = hackula_head;
-                    enemy_count = 1;
-                }
-            }
-            else
-            {
-                bool __cee = false;
-                float old_dist = 999999;
-                int enemy_head_index = 0;
-                
-                long player_count = 0;
-                rbx_child_t* player_list = rbx_instance_get_children(task, players_service, &player_count);
-                if (player_list)
-                {
-                    for (int i = 0 ; i < player_count ; i++)
+                    vm_address_t player = player_list[i].child_address;
+                    if (player && player != local_player)
                     {
-                        vm_address_t player = player_list[i].child_address;
-                        if (player && player != local_player)
+                        
+                        vm_address_t my_team = rbx_player_get_team(task, local_player);
+                        vm_address_t team = rbx_player_get_team(task, player);
+                        if (team != my_team || my_team == 0)
                         {
-                            
-                            vm_address_t my_team = rbx_player_get_team(task, local_player);
-                            vm_address_t team = rbx_player_get_team(task, player);
-                            if (team != my_team)
+                            vm_address_t character = rbx_player_get_character(task, player);
+                            if (character)
                             {
-                                vm_address_t character = rbx_player_get_character(task, player);
-                                if (character)
+                                vm_address_t head = rbx_instance_find_first_child(task, character, "Head");
+                                //vm_address_t head = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
+                                if (head)
                                 {
-                                    //vm_address_t head = rbx_instance_find_first_child(task, character, "Head");
-                                    //Getting caught is pretty easy when we stack headshots.
-                                    vm_address_t head = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
-                                    if (head)
+                                    enemy_heads[enemy_head_index] = head;
+                                    enemy_head_index++;
+                                    rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, head);
+                                    rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
+                                    const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
+                                    const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
+                                    const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                                    const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
+                                    const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
+                                    const float delta_ratio = (delta_dist/dist);
+                                    if (old_dist > dist)
                                     {
-                                        enemy_heads[enemy_head_index] = head;
-                                        enemy_head_index++;
-                                        
-                                        rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, head);
-                                        rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                                        const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
-                                        const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
-                                        const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
-                                        const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
-                                        const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
-                                        const float delta_ratio = (delta_dist/dist);
-                                        if (old_dist > dist)
+                                        if (max_delta_ratio > delta_ratio)
                                         {
-                                            if (max_delta_ratio > delta_ratio)
-                                            {
-                                                __cee = true;
-                                                old_dist = dist;
-                                                closest_enemy_head = head;
-                                            }
+                                            __cee = true;
+                                            old_dist = dist;
+                                            closest_enemy_head = head;
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                    vm_deallocate(mach_task_self_, (vm_address_t)player_list, player_count * sizeof(rbx_child_t));
                 }
-                closest_enemy_exists = __cee;
-                enemy_count = enemy_head_index;
+                vm_deallocate(mach_task_self_, (vm_address_t)player_list, player_count * sizeof(rbx_child_t));
             }
+            closest_enemy_exists = __cee;
+            enemy_count = enemy_head_index;
+            
             usleep(100000);
         }
     });
@@ -192,10 +165,9 @@ void arsenal_cheat(task_t task)
                     if (max_delta_ratio > delta_ratio)
                     {
                         vector3_t new_look_vector = vector3_unit(head_cframe.pos, camera_cframe.pos);
-                        vector3_t inc_look_vector = vector3_div_num(vector3_sub(new_look_vector, camera_look_vector), interpolation);
-                        camera_cframe.r20 += -inc_look_vector.x;
-                        camera_cframe.r21 += -inc_look_vector.y;
-                        camera_cframe.r22 += -inc_look_vector.z;
+                        camera_cframe.r20 = -new_look_vector.x;
+                        camera_cframe.r21 = -new_look_vector.y;
+                        camera_cframe.r22 = -new_look_vector.z;
                         rbx_camera_set_cframe(task, camera, &camera_cframe);
                     }
                 }

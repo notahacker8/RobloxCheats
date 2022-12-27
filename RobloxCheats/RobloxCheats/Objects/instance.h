@@ -161,7 +161,7 @@ vm_address_t rbx_instance_find_first_child_of_class(task_t task,
                 if (strcmp(cname, class_name) == 0)
                 {
                     found_child = child;
-                    i = child_count; //break;
+                    i = child_count;   //break the loop, without skipping the deallocating part;
                 }
                 vm_deallocate(mach_task_self_, (vm_address_t)cname, cname_len);
             }
@@ -192,7 +192,7 @@ vm_address_t rbx_instance_find_first_child(task_t task,
                 if (strcmp(_name, name) == 0)
                 {
                     found_child = child;
-                    i = child_count; //break;
+                    i = child_count;  //break the loop, without skipping the deallocating part.
                 }
                 vm_deallocate(mach_task_self_, (vm_address_t)_name, _name_len);
             }
@@ -202,6 +202,45 @@ vm_address_t rbx_instance_find_first_child(task_t task,
     return found_child;
 }
 
+vm_address_t rbx_instance_find_first_child_of_class_and_name(task_t task,
+                                                             vm_address_t instance,
+                                                             char* class_name,
+                                                             char* name)
+{
+    if (instance == 0) { return 0; }
+    long child_count = 0;
+    vm_address_t found_child = 0;
+    rbx_child_t* children = rbx_instance_get_children(task, instance, &child_count);
+    if (children)
+    {
+        for (long i = 0 ; i < child_count ; i++)
+        {
+            vm_address_t child = children[i].child_address;
+            char _name_len;
+            char* _name = rbx_instance_get_name(task, child, &_name_len);
+            if (_name != NULL)
+            {
+                if (strcmp(_name, name) == 0)
+                {
+                    char _cname_len;
+                    char* _cname = rbx_instance_get_class_name(task, child, &_cname_len);
+                    if (_cname)
+                    {
+                        if (strcmp(_cname, class_name) == 0)
+                        {
+                            found_child = child;
+                            i = child_count;
+                        }
+                        vm_deallocate(mach_task_self_, (vm_address_t)_cname, _cname_len);
+                    }
+                }
+                vm_deallocate(mach_task_self_, (vm_address_t)_name, _name_len);
+            }
+        }
+        vm_deallocate(mach_task_self_, (vm_address_t)children, child_count * sizeof(rbx_child_t));
+    }
+    return found_child;
+}
 
 
 vm_address_t rbx_find_game_address(task_t task)
@@ -286,77 +325,42 @@ vm_offset_t rbx_get_place_id(task_t task)
 
 
 
-/*
-void rbx_print_children_profiles(task_t task, vm_address_t instance)
+
+
+
+
+
+void rbx_print_descendants(task_t task, vm_address_t instance, int current_recurse_count, int max_recurse_count)
 {
-    if (instance == 0)
+    if (instance == 0 || current_recurse_count > max_recurse_count)
     {
         return;
     }
     long cc;
-    vm_address_t* children = rbx_instance_get_children(task, instance, &cc);
+    rbx_child_t* children = rbx_instance_get_children(task, instance, &cc);
     char _cname_len;
     char* _class_name = rbx_instance_get_class_name(task, instance, &_cname_len);
     char _name_len;
     char* _name = rbx_instance_get_name(task, instance, &_name_len);
-    printf("[%s] %s (%p) (child count: %lu)\n", _class_name, _name, (void*)instance, cc);
-    if (children)
-    {
-        for (long i = 0 ; i < cc ; i++)
-        {
-            vm_address_t child = children[i];
-            char cname_len;
-            char* class_name = rbx_instance_get_class_name(task, child, &cname_len);
-            char name_len;
-            char* name = rbx_instance_get_name(task, child, &name_len);
-            long cc = rbx_instance_get_child_count(task, child);
-            printf("\t[%s] %s (%p) (child count: %lu)\n", class_name, name, (void*)child, cc);
-        }
-        free(children);
-    }
-}
-
-
-void rbx_print_descendants(task_t task, vm_address_t instance, int recurse_count)
-{
-    if (instance == 0)
-    {
-        return;
-    }
-    long cc;
-    vm_address_t* children = rbx_instance_get_children(task, instance, &cc);
-    char _cname_len;
-    char* _class_name = rbx_instance_get_class_name(task, instance, &_cname_len);
-    char _name_len;
-    char* _name = rbx_instance_get_name(task, instance, &_name_len);
-    for (int i = 0 ; i < recurse_count ; i++)
+    for (int i = 0 ; i < current_recurse_count ; i++)
     {
         printf("\t");
     }
+    if (children == 0)
+    {
+        cc = 0;
+    }
     printf("[%s] %s (%p) (child count: %lu)\n", _class_name, _name, (void*)instance, cc);
     if (children)
     {
         for (long i = 0 ; i < cc ; i++)
         {
-            vm_address_t child = children[i];
-            char cname_len;
-            char* class_name = rbx_instance_get_class_name(task, child, &cname_len);
-            char name_len;
-            char* name = rbx_instance_get_name(task, child, &name_len);
-            long cc = rbx_instance_get_child_count(task, child);
-            if (cc > 0)
-            {
-                rbx_print_descendants(task, child, recurse_count + 1);
-            } else
-            {
-                for (int x = 0 ; x < recurse_count ; x++)
-                {
-                    printf("\t");
-                }
-                printf("\t[%s] %s (%p) (child count: %lu)\n", class_name, name, (void*)child, cc);
-            }
+            vm_address_t child = children[i].child_address;
+            rbx_print_descendants(task, child, current_recurse_count + 1, max_recurse_count);
         }
-        free(children);
+        vm_deallocate(mach_task_self_, (vm_address_t)children, cc * sizeof(rbx_child_t));
     }
+    vm_deallocate(mach_task_self_, (vm_address_t)_name, _name_len);
+    vm_deallocate(mach_task_self_, (vm_address_t)_class_name, _cname_len);
 }
-*/
+

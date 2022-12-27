@@ -183,9 +183,7 @@ void those_who_remain_cheat(task_t task)
                             rbx_cframe_t box_cframe = rbx_basepart_get_cframe(task, box);
                             float fov = rbx_camera_get_field_of_view(task, camera);
                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                            rbx_draw_esp_box(task, box_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, color, fov, 3, 3, 0, 0, window_w, window_h, (int)esp_index, true);
-                            float border_width = 2;
-                            vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
+                            rbx_draw_esp_box(task, box_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, 2, color, fov, 3, 3, 0, 0, window_w, window_h, (int)esp_index, true);
                         }
                     }
                 }

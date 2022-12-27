@@ -57,6 +57,7 @@ void phantom_forces_cheat(task_t task)
     esp_color.b = 0;
     esp_color.a = 1;
     
+    
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
@@ -151,10 +152,8 @@ void phantom_forces_cheat(task_t task)
                             float fov = rbx_camera_get_field_of_view(task, camera);
                             rbx_draw_esp_box(task, torso_cframe.pos,
                                              camera_cframe, esp_box_hidden_array,
-                                             esp_box_frame_array, esp_box_color_array,
+                                             esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, 2,
                                              esp_color, fov, 3, 3, 0, 0, window_w, window_h, esp_index, true);
-                            float border_width = 2;
-                            vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
                             esp_index++;
                         }
                     }
@@ -170,9 +169,6 @@ void phantom_forces_cheat(task_t task)
             }
         }
     });
-    
-    
-    
     
     
     

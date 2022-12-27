@@ -20,6 +20,13 @@ typedef union
 }
 int_float_u;
 
+typedef union
+{
+    long l;
+    double d;
+}
+long_double_u;
+
 #import <Foundation/Foundation.h>
 #include <ApplicationServices/ApplicationServices.h>
 #import <Cocoa/Cocoa.h>
@@ -35,9 +42,12 @@ int_float_u;
 #include <mach/arm/thread_status.h>
 #include <mach/thread_state.h>
 #include <mach/thread_status.h>
+#include <mach/mach_init.h>
+#include <mach/thread_policy.h>
 #include <mach-o/dyld_images.h>
 #include <mach/arm/_structs.h>
 #include <dlfcn.h>
+#include <math.h>
 #include <pthread.h>
 
 #define __INJECTED_DYLIB__ "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/ESP-drqlefpymzgresdhcnxyusawdjhf/Build/Products/Debug/libESP.dylib"
@@ -47,16 +57,6 @@ int_float_u;
 #define _KR_     if (kr != KERN_SUCCESS) { return NULL;}
 
 #define MAX_ESP_COUNT 400
-
-
-#define ARM_THREAD_STATE64        6
-
-#define ARM_THREAD_STATE_COUNT ((mach_msg_type_number_t) \
-   (sizeof (arm_thread_state_t)/sizeof(uint32_t)))
-#define ARM_THREAD_STATE32_COUNT ((mach_msg_type_number_t) \
-   (sizeof (arm_thread_state32_t)/sizeof(uint32_t)))
-#define ARM_THREAD_STATE64_COUNT ((mach_msg_type_number_t) \
-   (sizeof (arm_thread_state64_t)/sizeof(uint32_t)))
 
 
 ///Check if a module is loaded into the memory of a process.
@@ -119,6 +119,27 @@ pid_t pid_by_name(char* name)
     return retpid;
 }
 
+void pids_by_name(char* name, pid_t* inout_array)
+{
+    pid_t pids[4096];
+    int pid_index = 0;
+    int count = proc_listpids(PROC_ALL_PIDS, 0, pids, sizeof(pids));
+    int proc_count = count/sizeof(pid_t);
+    for (int i = 0; i < proc_count; i++)
+    {
+        struct proc_bsdinfo proc;
+        int st = proc_pidinfo(pids[i], PROC_PIDTBSDINFO, 0, &proc, PROC_PIDTBSDINFO_SIZE);
+        if (st == PROC_PIDTBSDINFO_SIZE)
+        {
+            if (strcmp(name, proc.pbi_name) == 0)
+            {
+                inout_array[pid_index] = pids[i];
+                pid_index++;
+            }
+        }
+    }
+}
+
 vm_address_t** task_get_regions(task_t task, int region_count)
 {
     kern_return_t kr;
@@ -143,9 +164,8 @@ vm_address_t** task_get_regions(task_t task, int region_count)
             depth++;
         }
         else {
-            //do stuff
-            a[0][i] = address;
-            a[1][i] = address + size;
+            a[0][i] = address; //First pointer is an array of region starts;
+            a[1][i] = address + size; //Second pointer is an array of region ends;
             address += size;
         }
     }
@@ -259,10 +279,11 @@ char vm_read_1byte_value(task_t task, vm_address_t address)
 #include "Objects/player.h"
 #include "Objects/values.h"
 #include "Objects/textlabel.h"
+#include "Objects/tool.h"
 
 
 
-///Get Dylib Symbol Offset
+///Get-Dylib-Symbol-Offset
 vm_address_t gdso(void* dlopen_handle,
                   vm_address_t load_address,
                   char* symbol)
@@ -281,6 +302,8 @@ ESP_Frame rbx_draw_esp_box(task_t task,
                            vm_address_t esp_box_hidden_array,
                            vm_address_t esp_box_frame_array,
                            vm_address_t esp_box_color_array,
+                           vm_address_t esp_box_border_width_array,
+                           float border_width,
                            ESP_Color color,
                            float fov,
                            float object_width,
@@ -331,6 +354,7 @@ ESP_Frame rbx_draw_esp_box(task_t task,
             
             vm_write(task, esp_box_frame_array + f_o, (vm_address_t)&frame, sizeof(ESP_Frame));
             vm_write(task, esp_box_color_array + c_o, (vm_address_t)&color, sizeof(ESP_Color));
+            vm_write(task, esp_box_border_width_array + (index * sizeof(float)), (vm_address_t)&border_width, sizeof(float));
         }
     }
     return frame;
@@ -340,50 +364,124 @@ ESP_Frame rbx_draw_esp_box(task_t task,
 #include "Games/Those-Who-Remain.h"
 #include "Games/Flood-Escape-Classic.h"
 #include "Games/Phantom-Forces.h"
-#include "Games/Tower-Defense-Simulator/Structs.h"
-#include "Games/Tower-Defense-Simulator/Functions.h"
-#include "Games/Tower-Defense-Simulator/Input-Stacks.h"
-#include "Games/Tower-Defense-Simulator/Main.h"
 #include "Games/Hack-Tests.h"
 #include "Games/Field-Of-Battle.h"
 #include "Games/Doors.h"
-#include "Games/Blox-Fruits/Main.h"
 #include "Games/Arsenal.h"
+#include "Games/Assassin.h"
+#include "Games/Aimblox.h"
+#include "Games/Weaponry.h"
+#include "Games/Arabic Fortnite.h"
+#include "Games/Flee-The-Facility.h"
+#include "Games/Jailbreak.h"
 
-
-
+/*
+long task_get_cpu_usage(task_t task)
+{
+    thread_array_t thread_array;
+    unsigned int thread_count;
+    long tot_cpu = 0;
+    kern_return_t kr = task_threads(task, &thread_array, &thread_count);
+    if (kr == KERN_SUCCESS)
+    {
+        for (int i = 0 ; i < thread_count ; i++)
+        {
+            thread_act_t thread = thread_array[i];
+            unsigned int thread_info_count = THREAD_EXTENDED_INFO_COUNT;
+            thread_info_data_t thread_info_data;
+            kern_return_t kr = thread_info(thread, THREAD_EXTENDED_INFO, (thread_info_t)&thread_info_data, &thread_info_count);
+            if (kr == KERN_SUCCESS)
+            {
+                thread_extended_info_t thread_ext_info = (thread_extended_info_t)thread_info_data;
+                tot_cpu += thread_ext_info->pth_cpu_usage;
+            }
+            else
+            {
+                printf("%s\n", mach_error_string(kr));
+            }
+        }
+        for (int i = 0 ; i < thread_count ; i++)
+        {
+          mach_port_deallocate(mach_task_self_, thread_array[i]);
+        }
+        vm_deallocate(mach_task_self_, (vm_address_t)thread_array, sizeof(thread_t) * thread_count);
+    }
+    else
+    {
+        printf("%s\n", mach_error_string(kr));
+        tot_cpu = -1;
+    }
+    return tot_cpu;
+}*/
 
 int main(int argc, char** argv)
 {
     kern_return_t kr;
-    printf("this pid: %d\n", getpid());
+    printf("RobloxCheats pid: %d\n", getpid());
     task_t task;
-    pid_t pid = pid_by_name("RobloxPlayer");
-    printf("roblox pid: %d\n", pid);
+    pid_t pid_array[4096];
+    pids_by_name("RobloxPlayer", pid_array);
+    pid_t pid = pid_array[0];
+    printf("RobloxPlayer pid: %d\n", pid);
+    printf("If using in Xcode, make sure both libESP.dylib and RobloxCheats are building for Intel\n");
     kr = task_for_pid(mach_task_self_, pid, &task);
     if (kr != KERN_SUCCESS)
     {
         printf("%s%d\n", "failed to obtain task port for pid: ", pid);
+        printf("%s\n", mach_error_string(kr));
     }
+
     
+    /*
+    vm_address_t game = rbx_find_game_address(task);
+    vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
+    vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
+    vm_address_t player = rbx_instance_find_first_child(task, players_service, "LastOfTheMistaken");
+    vm_address_t character = rbx_player_get_character(task, player);
+    vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
+    rbx_camera_set_camera_subject(task, camera, character);
+    */
+    
+    /*
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+                   {
+        for (;;)
+        {
+            task_resume(task);
+            usleep(500);
+            task_suspend(task);
+            usleep(100000);
+        }
+    });
+    */
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
-    //blox_fruits_cheat(task);
-       // arsenal_cheat(task);
-    //doors_test(task);
-    //doors_cheat(task);
-    //those_who_remain_cheat(task); // (incomplete)
-    //flood_escape_classic_cheat(task);
-    phantom_forces_cheat(task);
-    //tower_defense_simulator_cheat(task); //(incomplete)
+        //blox_fruits_cheat(task);
+        //arsenal_cheat(task);
+        //aimblox_cheat(task);
+        //arabic_fortnite_cheat(task);
+        //doors_test(task);
+        //doors_cheat(task);
+        //those_who_remain_cheat(task); // (incomplete)
+        //flood_escape_classic_cheat(task);
+        //phantom_forces_cheat(task);
+        //tower_defense_simulator_cheat(task); //(incomplete)
         //find_object_offsets(task);
-    //field_of_battle_cheat(task);
-        
+        //field_of_battle_collect_legendary_gem(task);
+        field_of_battle_auto_farm(task);
+        //jailbreak_cheat(task);
+        //flee_the_facility_hack(task);
+        //assassin_hack(task);
+        //weaponry_cheat(task);
+        //arabic_fortnite_cheat(task);
     });
+    
+    
     for (;;)
     {
         sleep(1);
     }
+    
     return 0;
 }
