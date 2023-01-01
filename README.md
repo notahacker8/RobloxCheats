@@ -18,6 +18,9 @@ See [<b>robloxShell</b>](https://github.com/notahacker8/RobloxCheats/blob/main/r
 ## Arsenal Aimbot + ESP
 ![Arsenal Aimbot + ESP](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Arsenal-Aimbot-ESP.png)
 
+## Jailbreak Aimbot + ESP + Speed
+![Jailbreak Aimbot + ESP + Speed](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Jailbreak-Aimbot-ESP-Speed.png)
+
 ## Phantom Forces Aimbot + ESP
 ![Phantom Forces Aimbot + ESP](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Phantom-Forces-Aimbot-ESP.png)
 
