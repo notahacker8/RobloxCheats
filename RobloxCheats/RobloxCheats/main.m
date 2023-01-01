@@ -49,15 +49,15 @@ long_double_u;
 #include <dlfcn.h>
 #include <math.h>
 #include <pthread.h>
+#include <pthread/sched.h>
+
 
 #define __INJECTED_DYLIB__ "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/ESP-drqlefpymzgresdhcnxyusawdjhf/Build/Products/Debug/libESP.dylib"
 
-
 #define PI 3.1415926535
-#define _KR_     if (kr != KERN_SUCCESS) { return NULL;}
+#define ARM_THREAD_STATE64 6
 
-#define MAX_ESP_COUNT 400
-
+#define ARM64_NOP 0xD503201F
 
 ///Check if a module is loaded into the memory of a process.
 vm_address_t get_image_address(const task_t task,
@@ -66,7 +66,7 @@ vm_address_t get_image_address(const task_t task,
     vm_address_t image_address = 0;
     kern_return_t kr;
     mach_msg_type_number_t size = 0;
-    static mach_msg_type_number_t data_cnt = 0;
+    mach_msg_type_number_t data_cnt = 0;
     
     struct task_dyld_info dyld_info;
     mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
@@ -86,10 +86,13 @@ vm_address_t get_image_address(const task_t task,
         vm_address_t img_file_path_ptr = (vm_address_t)(i -> imageFilePath);
         vm_address_t img_ld_address = (vm_address_t)(i -> imageLoadAddress);
         char* img_file_path;
-        vm_read(task, img_file_path_ptr, PATH_MAX, (vm_address_t*)&img_file_path, &data_cnt);
-        if (strcmp(image_path, img_file_path) == 0)
+        kr = vm_read(task, img_file_path_ptr, PATH_MAX, (vm_address_t*)&img_file_path, &data_cnt);
+        if (kr == KERN_SUCCESS)
         {
-            image_address = img_ld_address;
+            if (strcmp(image_path, img_file_path) == 0)
+            {
+                image_address = img_ld_address;
+            }
         }
     }
     return image_address;
@@ -98,28 +101,7 @@ vm_address_t get_image_address(const task_t task,
 
 
 
-pid_t pid_by_name(char* name)
-{
-    pid_t pids[4096];
-    int retpid = -1;
-    int count = proc_listpids(PROC_ALL_PIDS, 0, pids, sizeof(pids));
-    int proc_count = count/sizeof(pid_t);
-    for (int i = 0; i < proc_count; i++)
-    {
-        struct proc_bsdinfo proc;
-        int st = proc_pidinfo(pids[i], PROC_PIDTBSDINFO, 0, &proc, PROC_PIDTBSDINFO_SIZE);
-        if (st == PROC_PIDTBSDINFO_SIZE)
-        {
-            if (strcmp(name, proc.pbi_name) == 0)
-            {
-                retpid = pids[i];
-            }
-        }
-    }
-    return retpid;
-}
-
-void pids_by_name(char* name, pid_t* inout_array)
+int pids_by_name(char* name, pid_t* inout_array)
 {
     pid_t pids[4096];
     int pid_index = 0;
@@ -138,6 +120,7 @@ void pids_by_name(char* name, pid_t* inout_array)
             }
         }
     }
+    return pid_index;
 }
 
 vm_address_t** task_get_regions(task_t task, int region_count)
@@ -182,7 +165,7 @@ vm_address_t get_base_address(task_t task)
 
 void wait_until_input_queue_finished(task_t task, vm_address_t address, int usleep_time)
 {
-    static mach_msg_type_number_t data_cnt;
+    mach_msg_type_number_t data_cnt;
     
     for (;;)
     {
@@ -206,7 +189,7 @@ void wait_until_input_queue_finished(task_t task, vm_address_t address, int usle
 
 void is_input_queue_finished(task_t task, vm_address_t address, char* inout_bool)
 {
-    static mach_msg_type_number_t data_cnt;
+    mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
     kern_return_t kr = vm_read(task, address, 1, &read_data, &data_cnt);
     if (kr == KERN_SUCCESS)
@@ -220,7 +203,7 @@ void is_input_queue_finished(task_t task, vm_address_t address, char* inout_bool
 long vm_read_8byte_value(task_t task, vm_address_t address)
 {
     if (address == 0) { return 0; }
-    static mach_msg_type_number_t data_cnt;
+    mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
     long __data = 0;
     kern_return_t kr;
@@ -236,7 +219,7 @@ long vm_read_8byte_value(task_t task, vm_address_t address)
 int vm_read_4byte_value(task_t task, vm_address_t address)
 {
     if (address == 0) { return 0; }
-    static mach_msg_type_number_t data_cnt;
+    mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
     int __data = 0;
     kern_return_t kr;
@@ -252,7 +235,7 @@ int vm_read_4byte_value(task_t task, vm_address_t address)
 char vm_read_1byte_value(task_t task, vm_address_t address)
 {
     if (address == 0) { return 0; }
-    static mach_msg_type_number_t data_cnt;
+    mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
     char __data = 0;
     kern_return_t kr;
@@ -266,20 +249,22 @@ char vm_read_1byte_value(task_t task, vm_address_t address)
 }
 
 
-
-
-
 #include "Objects/offsets.h"
-#include "Objects/vector3.h"
+
+#include "Objects/brickcolors.h"
 #include "Objects/ESP.h"
+
+#include "Objects/vector3.h"
 #include "Objects/cframe.h"
+
 #include "Objects/instance.h"
 #include "Objects/basepart.h"
 #include "Objects/camera.h"
 #include "Objects/player.h"
 #include "Objects/values.h"
-#include "Objects/textlabel.h"
 #include "Objects/tool.h"
+#include "Objects/humanoid.h"
+#include "Objects/team.h"
 
 
 
@@ -368,51 +353,14 @@ ESP_Frame rbx_draw_esp_box(task_t task,
 #include "Games/Field-Of-Battle.h"
 #include "Games/Doors.h"
 #include "Games/Arsenal.h"
-#include "Games/Assassin.h"
+//#include "Games/Assassin.h" //Not currently working
 #include "Games/Aimblox.h"
 #include "Games/Weaponry.h"
 #include "Games/Arabic Fortnite.h"
 #include "Games/Flee-The-Facility.h"
 #include "Games/Jailbreak.h"
+#include "Games/Emergency-Response.h"
 
-/*
-long task_get_cpu_usage(task_t task)
-{
-    thread_array_t thread_array;
-    unsigned int thread_count;
-    long tot_cpu = 0;
-    kern_return_t kr = task_threads(task, &thread_array, &thread_count);
-    if (kr == KERN_SUCCESS)
-    {
-        for (int i = 0 ; i < thread_count ; i++)
-        {
-            thread_act_t thread = thread_array[i];
-            unsigned int thread_info_count = THREAD_EXTENDED_INFO_COUNT;
-            thread_info_data_t thread_info_data;
-            kern_return_t kr = thread_info(thread, THREAD_EXTENDED_INFO, (thread_info_t)&thread_info_data, &thread_info_count);
-            if (kr == KERN_SUCCESS)
-            {
-                thread_extended_info_t thread_ext_info = (thread_extended_info_t)thread_info_data;
-                tot_cpu += thread_ext_info->pth_cpu_usage;
-            }
-            else
-            {
-                printf("%s\n", mach_error_string(kr));
-            }
-        }
-        for (int i = 0 ; i < thread_count ; i++)
-        {
-          mach_port_deallocate(mach_task_self_, thread_array[i]);
-        }
-        vm_deallocate(mach_task_self_, (vm_address_t)thread_array, sizeof(thread_t) * thread_count);
-    }
-    else
-    {
-        printf("%s\n", mach_error_string(kr));
-        tot_cpu = -1;
-    }
-    return tot_cpu;
-}*/
 
 int main(int argc, char** argv)
 {
@@ -430,30 +378,8 @@ int main(int argc, char** argv)
         printf("%s%d\n", "failed to obtain task port for pid: ", pid);
         printf("%s\n", mach_error_string(kr));
     }
-
     
-    /*
-    vm_address_t game = rbx_find_game_address(task);
-    vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
-    vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
-    vm_address_t player = rbx_instance_find_first_child(task, players_service, "LastOfTheMistaken");
-    vm_address_t character = rbx_player_get_character(task, player);
-    vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
-    rbx_camera_set_camera_subject(task, camera, character);
-    */
-    
-    /*
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
-                   {
-        for (;;)
-        {
-            task_resume(task);
-            usleep(500);
-            task_suspend(task);
-            usleep(100000);
-        }
-    });
-    */
+       
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
@@ -463,14 +389,13 @@ int main(int argc, char** argv)
         //arabic_fortnite_cheat(task);
         //doors_test(task);
         //doors_cheat(task);
-        //those_who_remain_cheat(task); // (incomplete)
         //flood_escape_classic_cheat(task);
         //phantom_forces_cheat(task);
-        //tower_defense_simulator_cheat(task); //(incomplete)
         //find_object_offsets(task);
         //field_of_battle_collect_legendary_gem(task);
         field_of_battle_auto_farm(task);
         //jailbreak_cheat(task);
+        //emergency_response_cheat(task);
         //flee_the_facility_hack(task);
         //assassin_hack(task);
         //weaponry_cheat(task);
@@ -481,6 +406,13 @@ int main(int argc, char** argv)
     for (;;)
     {
         sleep(1);
+        pid_t buf;
+        if (pids_by_name("RobloxPlayer", &buf) == 0)
+        {
+            printf("RobloxPlayer process can no longer be found...\n");
+            printf(" > EXITING...\n");
+            exit(0);
+        }
     }
     
     return 0;

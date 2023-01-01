@@ -1,7 +1,7 @@
 
-#define RBX_JAILBREAK_MAX_PLAYER_COUNT 30
+#define RBX_ERLC_MAX_PLAYER_COUNT 35
 
-void jailbreak_cheat(task_t task)
+void emergency_response_cheat(task_t task)
 {
     static mach_msg_type_number_t data_cnt;
     
@@ -18,7 +18,6 @@ void jailbreak_cheat(task_t task)
     vm_offset_t esp_box_hidden_array_offset = gdso(handle, s_load_address, "ESP_BOX_HIDDEN_ARRAY");
     vm_offset_t esp_box_frame_array_offset = gdso(handle, s_load_address, "ESP_BOX_FRAME_ARRAY");
     vm_offset_t esp_box_color_array_offset = gdso(handle, s_load_address, "ESP_BOX_COLOR_ARRAY");
-    vm_offset_t esp_box_text_array_offset = gdso(handle, s_load_address, "ESP_BOX_TEXT_ARRAY");
     vm_offset_t esp_box_border_width_array_offset = gdso(handle, s_load_address, "ESP_BOX_BORDER_WIDTH_ARRAY");
     
     dlclose(handle);
@@ -28,7 +27,6 @@ void jailbreak_cheat(task_t task)
     char esp_enabled = true;
     vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, 1);
     
-    vm_address_t esp_box_text_array = load_address + esp_box_text_array_offset;
     vm_address_t esp_box_hidden_array = load_address + esp_box_hidden_array_offset;
     vm_address_t esp_box_frame_array = load_address + esp_box_frame_array_offset;
     vm_address_t esp_box_color_array = load_address + esp_box_color_array_offset;
@@ -47,9 +45,8 @@ void jailbreak_cheat(task_t task)
     vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
     
     static long current_player_count = 0;
-    static ESP_Color player_team_esp_colors[RBX_JAILBREAK_MAX_PLAYER_COUNT];
-    static vm_address_t player_torsos[RBX_JAILBREAK_MAX_PLAYER_COUNT];
-    static char player_names[RBX_JAILBREAK_MAX_PLAYER_COUNT][MAX_ESP_TEXT_SIZE];
+    static ESP_Color player_team_esp_colors[RBX_ERLC_MAX_PLAYER_COUNT];
+    static vm_address_t player_torsos[RBX_ERLC_MAX_PLAYER_COUNT];
     static vm_address_t my_char = 0;
     static vm_address_t my_hrp = 0;
     static vm_address_t my_humanoid = 0;
@@ -105,13 +102,6 @@ void jailbreak_cheat(task_t task)
                         vm_address_t head = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
                         if (head)
                         {
-                            char _nl;
-                            char* _n = rbx_player_get_display_name(task, player, &_nl);
-                            if (_n)
-                            {
-                                strcpy(player_names[__plr_count], _n);
-                                vm_deallocate(mach_task_self_, (vm_address_t)_n, _nl);
-                            }
                             player_torsos[__plr_count] = head;
                             rbx_brickcolor_info_t color_info = rbx_brick_color_index(rbx_team_get_brick_color(task, team));
                             player_team_esp_colors[__plr_count].r = ((float)color_info.r)/255;
@@ -153,7 +143,7 @@ void jailbreak_cheat(task_t task)
         for (;;)
         {
             vector3_t md = rbx_humanoid_get_move_direction(task, my_humanoid);
-            bonus = vector3_div_num(md, 20);
+            bonus = vector3_div_num(md, 50);
             usleep(1000);
         }
     });
@@ -162,9 +152,9 @@ void jailbreak_cheat(task_t task)
         for (;;)
         {
             rbx_cframe_t my_cf = rbx_basepart_get_cframe(task, my_hrp);
-            vector3_t new_pos = vector3_add(my_cf.pos, bonus);
-            vm_write(task, my_hrp_cframe_address + 0x24, (vm_offset_t)&new_pos, sizeof(vector3_t));
-            usleep(10);
+            my_cf.pos = vector3_add(my_cf.pos, bonus);
+            vm_write(task, my_hrp_cframe_address, (vm_offset_t)&my_cf, sizeof(rbx_cframe_t));
+            usleep(20);
         }
     });
     
@@ -174,9 +164,7 @@ void jailbreak_cheat(task_t task)
         {
             if (current_player_count > 0)
             {
-                int var_index = 0;
                 int esp_index = 0;
-                
                 for (long i = 0 ; i < current_player_count ; i++)
                 {
                     usleep(esput/current_player_count);
@@ -189,27 +177,13 @@ void jailbreak_cheat(task_t task)
                         {
                             rbx_cframe_t torso_cframe = rbx_basepart_get_cframe(task, torso);
                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
+                            ESP_Color esp_color = player_team_esp_colors[i];
                             float fov = rbx_camera_get_field_of_view(task, camera);
-                            
-                            ESP_Color esp_color = player_team_esp_colors[var_index];
-                            char* player_name = player_names[var_index];
-                            
                             rbx_draw_esp_box(task, torso_cframe.pos,
                                              camera_cframe, esp_box_hidden_array,
                                              esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, 2,
                                              esp_color, fov, 20, 20, 0, 0, window_w, window_h, esp_index, false);
                             esp_index++;
-                            
-                            rbx_draw_esp_box(task, torso_cframe.pos,
-                                             camera_cframe, esp_box_hidden_array,
-                                             esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, 0,
-                                             esp_color, fov, 200, 40, 0, 50, window_w, window_h, esp_index, false);
-                            
-                            vm_write(task, esp_box_text_array + (esp_index * MAX_ESP_TEXT_SIZE), (vm_address_t)player_name, MAX_ESP_TEXT_SIZE);
-                            
-                            esp_index++;
-                            
-                            var_index++;
                         }
                     }
                 }
@@ -262,4 +236,3 @@ void jailbreak_cheat(task_t task)
     });
     
 }
-

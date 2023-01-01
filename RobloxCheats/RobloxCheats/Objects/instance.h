@@ -43,62 +43,76 @@ rbx_instance_t;
 
 vm_address_t rbx_instance_get_parent(task_t task, vm_address_t instance)
 {
+    if (instance == 0) { return 0; }
     return vm_read_8byte_value(task, instance + 0x58);
 }
 
 char* rbx_instance_get_name(task_t task, vm_address_t instance, char* inout_len)
 {
-    char* name_length;
-    char _name_length;
-    
-    vm_address_t* name_address;
-    vm_address_t _name_address;
-    
-    char* name;
-    static mach_msg_type_number_t data_cnt;
+    if (instance == 0) { return NULL; }
+    mach_msg_type_number_t data_cnt;
+    vm_address_t read_data;
     kern_return_t kr;
-    kr = vm_read(task, instance + 0x40, 8, (vm_offset_t*)&name_address, &data_cnt);
-    _KR_
-    _name_address = *name_address;
-    kr = vm_read(task, _name_address, 1, (vm_offset_t*)&name_length, &data_cnt);
-    vm_deallocate(mach_task_self_, (vm_address_t)name_address, 8);
-    _KR_
-    _name_length = *name_length;
-    vm_deallocate(mach_task_self_, (vm_address_t)name_length, 1);
-    kr = vm_read(task, _name_address + 1, _name_length/2, (vm_offset_t*)&name, &data_cnt);
-    _KR_
-    *inout_len = _name_length/2;
+    
+    char name_length;
+    vm_address_t name_address;
+    char* name = NULL;
+    
+    kr = vm_read(task, instance + 0x40, 8, (vm_offset_t*)&read_data, &data_cnt);
+    if (kr == KERN_SUCCESS)
+    {
+        name_address = *(vm_address_t*)read_data;
+        vm_deallocate(mach_task_self_, read_data, 8);
+        kr = vm_read(task, name_address, 1, (vm_offset_t*)&read_data, &data_cnt);
+        if (kr == KERN_SUCCESS)
+        {
+            name_length = *(char*)read_data;
+            name_length /= 2;
+            *inout_len = name_length;
+            vm_deallocate(mach_task_self_, read_data, 1);
+            kr = vm_read(task, name_address + 1, name_length, (vm_offset_t*)&name, &data_cnt);
+        }
+    }
+    
 
     return name;
 }
 
 char* rbx_instance_get_class_name(task_t task, vm_address_t instance, char* inout_len)
 {
+    if (instance == 0) { return NULL; }
+    mach_msg_type_number_t data_cnt;
+    kern_return_t kr;
+    vm_address_t read_data;
+    
     char class_name_length;
     vm_address_t class_name_address;
     vm_address_t ci_ptr;
     
-    vm_address_t read_data;
+    char* class_name = NULL;
     
-    char* class_name;
-    
-    kern_return_t kr;
-    static mach_msg_type_number_t data_cnt;
     kr = vm_read(task, instance + 0x18, 8, (vm_offset_t*)&read_data, &data_cnt);
-    _KR_
-    ci_ptr = *(vm_address_t*)read_data;
-    vm_deallocate(mach_task_self_, (vm_address_t)read_data, 8);
-    kr = vm_read(task, ci_ptr + 8, 8, (vm_offset_t*)&read_data, &data_cnt);
-    _KR_
-    class_name_address = *(vm_address_t*)read_data;
-    vm_deallocate(mach_task_self_, read_data, 8);
-    kr = vm_read(task, class_name_address, 1, (vm_offset_t*)&read_data, &data_cnt);
-    _KR_
-    class_name_length = *(char*)read_data;
-    vm_deallocate(mach_task_self_, read_data, 1);
-    kr = vm_read(task, class_name_address + 1, class_name_length/2, (vm_offset_t*)&class_name, &data_cnt);
-    _KR_
-    *inout_len = class_name_length/2;
+    if (kr == KERN_SUCCESS)
+    {
+        ci_ptr = *(vm_address_t*)read_data;
+        vm_deallocate(mach_task_self_, (vm_address_t)read_data, 8);
+        kr = vm_read(task, ci_ptr + 8, 8, (vm_offset_t*)&read_data, &data_cnt);
+        if (kr == KERN_SUCCESS)
+        {
+            class_name_address = *(vm_address_t*)read_data;
+            vm_deallocate(mach_task_self_, read_data, 8);
+            kr = vm_read(task, class_name_address, 1, (vm_offset_t*)&read_data, &data_cnt);
+            if (kr == KERN_SUCCESS)
+            {
+                class_name_length = *(char*)read_data;
+                class_name_length /= 2;
+                *inout_len = class_name_length;
+                vm_deallocate(mach_task_self_, read_data, 1);
+                kr = vm_read(task, class_name_address + 1, class_name_length, (vm_offset_t*)&class_name, &data_cnt);
+            }
+        }
+    }
+    
     return class_name;
 }
 
@@ -106,7 +120,7 @@ char* rbx_instance_get_class_name(task_t task, vm_address_t instance, char* inou
 rbx_child_t* rbx_instance_get_children(task_t task, vm_address_t instance, long* inout_child_count)
 {
     if (instance == 0) { return NULL; }
-    static mach_msg_type_number_t data_cnt;
+    mach_msg_type_number_t data_cnt;
     
     kern_return_t kr;
     
@@ -245,7 +259,7 @@ vm_address_t rbx_instance_find_first_child_of_class_and_name(task_t task,
 
 vm_address_t rbx_find_game_address(task_t task)
 {
-    static mach_msg_type_number_t data_cnt;
+    mach_msg_type_number_t data_cnt;
     vm_address_t game = 0;
     vm_address_t base = get_base_address(task);
     vm_address_t** regions = task_get_regions(task, 3);
@@ -277,7 +291,7 @@ vm_address_t rbx_find_game_address(task_t task)
                         if (strcmp("Game", name) == 0)
                         {
                             game = pg;
-                            i = (size/8); //break;
+                            i = (size/8); //break loop without skipping the deallocation.
                         }
                     }
                 }
@@ -288,22 +302,6 @@ vm_address_t rbx_find_game_address(task_t task)
     }
     vm_deallocate(mach_task_self_, (vm_address_t)possible_games, size);
     return game;
-}
-
-
-vm_offset_t rbx_get_place_id(task_t task)
-{
-    vm_address_t read_data;
-    mach_msg_type_number_t data_cnt;
-    kern_return_t kr = 0;
-    vm_address_t _id = 0;
-    kr = vm_read(task, get_base_address(task) + RBX_PLACE_ID_OFFSET, 8, &read_data, &data_cnt);
-    if (kr == KERN_SUCCESS)
-    {
-        _id = *(vm_address_t*)read_data;
-        vm_deallocate(mach_task_self_, read_data, 8);
-    }
-    return _id;
 }
 
 

@@ -18,6 +18,7 @@ typedef struct
 }
 rbx_base_part_t;
 
+
 vm_address_t rbx_basepart_get_properties_address(task_t task, vm_address_t basepart)
 {
     return vm_read_8byte_value(task, basepart + RBX_PART_PROPERTIES_OFFSET);
@@ -65,6 +66,7 @@ void rbx_basepart_set_cframe(task_t task, vm_address_t basepart, rbx_cframe_t* c
     vm_write(task, p_a + RBX_PART_PROPERTIES_CFRAME_OFFSET, (vm_address_t)cf, sizeof(rbx_cframe_t));
     return;
 }
+
 
 rbx_rgb_t rbx_basepart_get_color(task_t task, vm_address_t basepart)
 {

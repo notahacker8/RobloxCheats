@@ -103,7 +103,6 @@ void weaponry_cheat(task_t task)
                             if (character)
                             {
                                 vm_address_t head = rbx_instance_find_first_child(task, character, "Head");
-                                //vm_address_t head = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
                                 if (head)
                                 {
                                     enemy_heads[enemy_head_index] = head;

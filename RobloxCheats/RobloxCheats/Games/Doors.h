@@ -317,7 +317,7 @@ void doors_cheat(task_t task)
             frame.h = 40;
             border_width = 0;
             vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)&hidden, 1);
-            vm_write(task, esp_box_text_array + (esp_index * 50), (vm_address_t)current_event, 30);
+            vm_write(task, esp_box_text_array + (esp_index * MAX_ESP_TEXT_SIZE), (vm_address_t)current_event, MAX_ESP_TEXT_SIZE);
             vm_write(task, esp_box_frame_array + (esp_index * sizeof(ESP_Frame)), (vm_address_t)&frame, sizeof(ESP_Frame));
             vm_write(task, esp_box_color_array + (esp_index * sizeof(ESP_Color)), (vm_address_t)&monster_esp_color, sizeof(ESP_Color));
             vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);

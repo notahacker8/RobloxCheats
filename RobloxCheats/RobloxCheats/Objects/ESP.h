@@ -1,4 +1,7 @@
 
+#define MAX_ESP_COUNT 400
+#define MAX_INPUT_COUNT 100
+#define MAX_ESP_TEXT_SIZE 50
 
 typedef struct
 {

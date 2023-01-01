@@ -171,11 +171,10 @@ extern char LEFT_MOUSE_DOWN;
 
 
 
-
-
 __attribute__((constructor))
 void initialize(void)
 {
+    
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown handler:^NSEvent * _Nullable(NSEvent * _Nonnull event) {
         //printf("%f, %f\n", event.locationInWindow.x, event.locationInWindow.y);
         LEFT_MOUSE_DOWN = true;

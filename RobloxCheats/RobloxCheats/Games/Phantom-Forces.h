@@ -3,7 +3,9 @@
 
 void phantom_forces_cheat(task_t task)
 {
-    printf("- PHANTOM FORCES -\n");
+    printf("- PHANTOM FORCES (AIMBOT & ESP) -\n");
+    printf("Notes:\n");
+    printf("\tDon't aim on scopes when using aimbot. (it won't work)\n");
     static mach_msg_type_number_t data_cnt;
     
     void* handle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
@@ -42,21 +44,36 @@ void phantom_forces_cheat(task_t task)
     vm_address_t teams_service = rbx_instance_find_first_child_of_class(task, game, "Teams");
     vm_address_t phantoms_team = rbx_instance_find_first_child(task, teams_service, "Phantoms");
     vm_address_t ghosts_team = rbx_instance_find_first_child(task, teams_service, "Ghosts");
-    
     vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
     
     useconds_t esput = 500;
     vm_write(task, load_address + esp_usleep_time_offset, (vm_address_t)&esput, sizeof(useconds_t));
     
-    static vm_address_t enemy_torsos[RBX_PHANTOM_FORCES_MAX_PLAYER_COUNT];
-    static long enemy_count = 0;
+    static vm_address_t closest_enemy_head;
+    static char closest_enemy_exists = false;
+    static const float max_delta_ratio = 0.125;
     
+    static vm_address_t enemy_torsos[RBX_PHANTOM_FORCES_MAX_PLAYER_COUNT];
+    static vm_address_t my_char = 0;
+    static vm_address_t my_right_arm = 0;
+    static long enemy_count = 0;
+    static vm_address_t trigger = 0;
+    static vm_address_t trigger_cframe_address = 0;
+    
+    static float new_trigger_cframe_r20;
+    static float new_trigger_cframe_r21;
+    static float new_trigger_cframe_r22;
+    static int write_usleep_time = 100;
+    static int write_size = 0;
+    static char aimbot_enabled = true;
+
     static ESP_Color esp_color;
     esp_color.r = 0;
     esp_color.g = 1;
     esp_color.b = 0;
     esp_color.a = 1;
     
+    rbx_print_descendants(task, camera, 0, 3);
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
@@ -66,50 +83,65 @@ void phantom_forces_cheat(task_t task)
             vm_address_t blue_team_folder = rbx_instance_find_first_child(task, players_folder, "Bright blue");
             vm_address_t orange_team_folder = rbx_instance_find_first_child(task, players_folder, "Bright orange");
             vm_address_t my_team = rbx_player_get_team(task, local_player);
-            int enemy_torso_index = 0;
+            vm_address_t main = rbx_instance_find_first_child(task, camera, "Main");
+            trigger = rbx_instance_find_first_child(task, main, "Trigger");
+            trigger_cframe_address = rbx_basepart_get_properties_address(task, trigger) + RBX_PART_PROPERTIES_CFRAME_OFFSET;
+            my_char = rbx_instance_get_parent(task, rbx_camera_get_camera_subject(task, camera));
+            my_right_arm = rbx_instance_find_first_child(task, my_char, "Right Arm");
+            
+            vm_address_t enemy_team_folder = 0;
+            
             if (my_team == phantoms_team)
             {
-                rbx_child_t* enemies_list = rbx_instance_get_children(task, orange_team_folder, &enemy_count);
-                if (enemies_list)
-                {
-                    for (int i = 0 ; i < enemy_count ; i++)
-                    {
-                        vm_address_t enemy = enemies_list[i].child_address;
-                        if (enemy)
-                        {
-                            vm_address_t torso = rbx_instance_find_first_child(task, enemy, "Torso");
-                            if (torso)
-                            {
-                                enemy_torsos[enemy_torso_index] = torso;
-                                enemy_torso_index++;
-                            }
-                        }
-                    }
-                    vm_deallocate(mach_task_self_, (vm_address_t)enemies_list, enemy_count * sizeof(rbx_child_t));
-                }
+                enemy_team_folder = orange_team_folder;
             }
             if (my_team == ghosts_team)
             {
-                rbx_child_t* enemies_list = rbx_instance_get_children(task, blue_team_folder, &enemy_count);
-                if (enemies_list)
-                {
-                    for (int i = 0 ; i < enemy_count ; i++)
-                    {
-                        vm_address_t enemy = enemies_list[i].child_address;
-                        if (enemy)
-                        {
-                            vm_address_t torso = rbx_instance_find_first_child(task, enemy, "Torso");
-                            if (torso)
-                            {
-                                enemy_torsos[enemy_torso_index] = torso;
-                                enemy_torso_index++;
-                            }
-                        }
-                    }
-                    vm_deallocate(mach_task_self_, (vm_address_t)enemies_list, enemy_count * sizeof(rbx_child_t));
-                }
+                enemy_team_folder = blue_team_folder;
             }
             
+            bool __cee = false;
+            float old_dist = 999999;
+            int enemy_torso_index = 0;
+            
+            rbx_child_t* enemies_list = rbx_instance_get_children(task, enemy_team_folder, &enemy_count);
+            if (enemies_list)
+            {
+                for (int i = 0 ; i < enemy_count ; i++)
+                {
+                    vm_address_t enemy = enemies_list[i].child_address;
+                    if (enemy)
+                    {
+                        vm_address_t torso = rbx_instance_find_first_child(task, enemy, "Torso");
+                        if (torso)
+                        {
+                            enemy_torsos[enemy_torso_index] = torso;
+                            enemy_torso_index++;
+                            
+                            rbx_cframe_t torso_cframe = rbx_basepart_get_cframe(task, torso);
+                            rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
+                            const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
+                            const float dist = vector3_dist_dif(torso_cframe.pos, camera_cframe.pos);
+                            const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                            const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
+                            const float delta_dist = vector3_dist_dif(f_pos, torso_cframe.pos);
+                            const float delta_ratio = (delta_dist/dist);
+                            if (old_dist > dist)
+                            {
+                                if (max_delta_ratio > delta_ratio)
+                                {
+                                    __cee = true;
+                                    old_dist = dist;
+                                    closest_enemy_head = torso;
+                                }
+                            }
+                            
+                        }
+                    }
+                }
+                vm_deallocate(mach_task_self_, (vm_address_t)enemies_list, enemy_count * sizeof(rbx_child_t));
+            }
+            closest_enemy_exists = __cee;
             kern_return_t kr;
             vm_address_t read_data;
             kr = vm_read(task, load_address + window_w_offset, 4, &read_data, &data_cnt);
@@ -126,7 +158,7 @@ void phantom_forces_cheat(task_t task)
                 vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
             }
 
-            sleep(1);
+            usleep(300000);
         }
     });
     
@@ -170,8 +202,45 @@ void phantom_forces_cheat(task_t task)
         }
     });
     
-    
-    
-    
-    
+    if (aimbot_enabled == true)
+    {
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+                       {
+            for (;;)
+            {
+                if (closest_enemy_exists == true && closest_enemy_head)
+                {
+                    rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, closest_enemy_head);
+                    rbx_cframe_t trigger_cframe = rbx_basepart_get_cframe(task, trigger);
+                    
+                    vector3_t new_look_vector = vector3_unit(head_cframe.pos, trigger_cframe.pos);
+                    
+                    new_trigger_cframe_r20 = -new_look_vector.x;
+                    new_trigger_cframe_r21 = -new_look_vector.y;
+                    new_trigger_cframe_r22 = -new_look_vector.z;
+
+                    write_usleep_time = 3;
+                    write_size = 4;
+                    usleep(70);
+                } else
+                {
+                    write_size = 0;
+                    write_usleep_time = 100;
+                    usleep(500);
+                }
+            }
+        });
+        
+        
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+        {
+            for (;;)
+            {
+                vm_write(task, trigger_cframe_address + 0x8, (vm_offset_t)&new_trigger_cframe_r20, write_size);
+                vm_write(task, trigger_cframe_address + 0x14, (vm_offset_t)&new_trigger_cframe_r21, write_size);
+                vm_write(task, trigger_cframe_address + 0x20, (vm_offset_t)&new_trigger_cframe_r22, write_size);
+                usleep(write_usleep_time);
+            }
+        });
+    }
 }
