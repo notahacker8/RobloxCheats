@@ -12,7 +12,7 @@ rbx_cframe_t rbx_tool_get_grip(task_t task, vm_address_t tool)
     vm_address_t read_data;
     
     if (tool == 0) {return cframe;}
-    kr = vm_read(task, tool + 0x1b4, sizeof(rbx_cframe_t), (vm_offset_t*)&read_data, &data_cnt);
+    kr = vm_read(task, tool + 0x338, sizeof(rbx_cframe_t), (vm_offset_t*)&read_data, &data_cnt);
     if (kr == KERN_SUCCESS)
     {
         cframe = *(rbx_cframe_t*)read_data;
@@ -24,6 +24,6 @@ rbx_cframe_t rbx_tool_get_grip(task_t task, vm_address_t tool)
 void rbx_tool_set_grip(task_t task, vm_address_t tool, rbx_cframe_t cf)
 {
     if (tool == 0) {return;}
-    vm_write(task, tool + 0x1b4, (vm_address_t)&cf, sizeof(rbx_cframe_t));
+    vm_write(task, tool + 0x338, (vm_address_t)&cf, sizeof(rbx_cframe_t));
     return;
 }

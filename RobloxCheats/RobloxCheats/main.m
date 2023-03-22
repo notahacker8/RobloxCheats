@@ -2,14 +2,14 @@
 //  main.m
 //  RobloxCheats
 //
-//  Created by Dimitri Armendariz on 9/10/22.
+//  Created by me on 9/10/22.
 //
 
 typedef struct
 {
-    char r;
-    char g;
-    char b;
+    unsigned char r;
+    unsigned char g;
+    unsigned char b;
 }
 rbx_rgb_t;
 
@@ -55,9 +55,10 @@ long_double_u;
 #define __INJECTED_DYLIB__ "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/ESP-drqlefpymzgresdhcnxyusawdjhf/Build/Products/Debug/libESP.dylib"
 
 #define PI 3.1415926535
-#define ARM_THREAD_STATE64 6
 
+#define ARM_THREAD_STATE64 6
 #define ARM64_NOP 0xD503201F
+
 
 ///Check if a module is loaded into the memory of a process.
 vm_address_t get_image_address(const task_t task,
@@ -369,7 +370,7 @@ int main(int argc, char** argv)
     task_t task;
     pid_t pid_array[4096];
     pids_by_name("RobloxPlayer", pid_array);
-    pid_t pid = pid_array[0];
+    pid_t pid = pid_array[0]; //The most recent RobloxPlayer process.
     printf("RobloxPlayer pid: %d\n", pid);
     printf("If using in Xcode, make sure both libESP.dylib and RobloxCheats are building for Intel\n");
     kr = task_for_pid(mach_task_self_, pid, &task);
@@ -383,17 +384,19 @@ int main(int argc, char** argv)
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
-        //blox_fruits_cheat(task);
         //arsenal_cheat(task);
         //aimblox_cheat(task);
         //arabic_fortnite_cheat(task);
         //doors_test(task);
         //doors_cheat(task);
         //flood_escape_classic_cheat(task);
-        //phantom_forces_cheat(task);
-        //find_object_offsets(task);
+        phantom_forces_cheat(task);
+        //find_object_offsets(task, "blockmincer");
+        //fob_troll(task);
+        //func_call_test(task);
         //field_of_battle_collect_legendary_gem(task);
-        field_of_battle_auto_farm(task);
+        //jailbreak_cop_tp(task, "blockmincer");
+        //field_of_battle_auto_farm(task);
         //jailbreak_cheat(task);
         //emergency_response_cheat(task);
         //flee_the_facility_hack(task);

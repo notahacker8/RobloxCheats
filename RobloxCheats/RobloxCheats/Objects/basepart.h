@@ -1,24 +1,6 @@
 
 
 
-typedef struct
-{
-    char __pad__1__[0x110];
-    float gravity; // + 0x110
-    char __pad__2__[0x4]; // + 0x114
-    rbx_cframe_t cframe0; // + 0x118
-    
-}
-rbx_base_part_properties_t;
-
-typedef struct
-{
-    char __pad__1__[0x158];
-    void* properties;
-}
-rbx_base_part_t;
-
-
 vm_address_t rbx_basepart_get_properties_address(task_t task, vm_address_t basepart)
 {
     return vm_read_8byte_value(task, basepart + RBX_PART_PROPERTIES_OFFSET);
@@ -76,7 +58,7 @@ rbx_rgb_t rbx_basepart_get_color(task_t task, vm_address_t basepart)
     if (basepart == 0) {return _color;}
     static mach_msg_type_number_t data_cnt;
     kern_return_t kr;
-    kr = vm_read(task, basepart + RBX_PART_PROPERTIES_OFFSET + 0x30, sizeof(rbx_rgb_t), (vm_offset_t*)&color, &data_cnt);
+    kr = vm_read(task, basepart + RBX_PART_RGB_COLOR_OFFSET, sizeof(rbx_rgb_t), (vm_offset_t*)&color, &data_cnt);
     if (kr == KERN_SUCCESS)
     {
         _color = *color;

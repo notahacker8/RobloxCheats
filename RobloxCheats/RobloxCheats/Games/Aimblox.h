@@ -170,7 +170,7 @@ void aimblox_cheat(task_t task)
             }
             closest_enemy_exists = __cee;
             enemy_count = enemy_head_index;
-            usleep(100000);
+            usleep(300000);
         }
     });
     
@@ -203,7 +203,7 @@ void aimblox_cheat(task_t task)
                         camera_cframe.r20 = -new_look_vector.x;
                         camera_cframe.r21 = -new_look_vector.y;
                         camera_cframe.r22 = -new_look_vector.z;
-                        vm_write(task, cam_cframe_value + RBX_INT_VALUE_VALUE_OFFSET, &camera_cframe, sizeof(rbx_cframe_t));
+                        vm_write(task, cam_cframe_value + RBX_INT_VALUE_VALUE_OFFSET, (vm_address_t)&camera_cframe, sizeof(rbx_cframe_t));
                         rbx_camera_set_cframe(task, camera, &camera_cframe);
                     }
                 }

@@ -1,7 +1,8 @@
 
-#define MAX_ESP_COUNT 400
+#define MAX_ESP_COUNT 200
 #define MAX_INPUT_COUNT 100
-#define MAX_ESP_TEXT_SIZE 50
+#define MAX_FUNCTION_COUNT 100
+#define MAX_ESP_TEXT_LENGTH 50
 
 typedef struct
 {
@@ -32,4 +33,15 @@ typedef struct
     int window_index;
 }
 Input;
+
+typedef struct
+{
+    int type;
+    vm_address_t address;
+    char arguments[8 * 6];
+    char return_bytes[8];
+    int finished;
+}
+RemoteFunctionCall;
+
 

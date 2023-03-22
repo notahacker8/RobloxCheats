@@ -43,21 +43,23 @@ void doors_cheat(task_t task)
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
     vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
-    vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
-    
-    vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
-    vm_address_t my_character = rbx_player_get_character(task, local_player);
-    vm_address_t my_hrp = rbx_instance_find_first_child(task, my_character, "HumanoidRootPart");
     
     static char current_event[100];
     static char* current_event_format = "";
     
     static vm_address_t current_room = 0;
     static vm_address_t door = 0;
-    static vm_address_t hint_books[8];
     static vm_address_t key = 0;
+    static vm_address_t electrical_key = 0;
     static vm_address_t monster_part = 0;
     static vm_address_t lever = 0;
+    static vm_address_t figure_part = 0;
+    
+    static vm_address_t hint_books[8];
+    static int hint_book_count = 0;
+    
+    static vm_address_t snares[1000]; //Don't really know the limit
+    static int snare_count = 0;
     
     static ESP_Color door_esp_color;
     door_esp_color.r = 0;
@@ -89,6 +91,9 @@ void doors_cheat(task_t task)
     monster_esp_color.b = 0;
     monster_esp_color.a = 1;
     
+    static ESP_Color figure_esp_color = {.r = 1, .g = 0, .b = 0.8, .a = 1};
+    static ESP_Color electrical_key_esp_color = {.r = 0, .g = 1, .b = 0, .a = 1};
+    
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
@@ -96,12 +101,14 @@ void doors_cheat(task_t task)
             
             vm_address_t rushmoving = rbx_instance_find_first_child(task, workspace, "RushMoving");
             vm_address_t ambushmoving = rbx_instance_find_first_child(task, workspace, "AmbushMoving");
-            //rbx_print_children_profiles(task, workspace);
+            //rbx_print_descendants(task, workspace, 0, 5);
             
             char door_exists = false;
             char monster_exists = false;
             char key_exists = false;
+            char electrical_key_exists = false;
             char lever_exists = false;
+            char figure_exists = false;
             
             if (rushmoving)
             {
@@ -132,18 +139,36 @@ void doors_cheat(task_t task)
                             door = rbx_instance_find_first_child(task, door_model, "Door");
                             door_exists = true;
                         }
+                        
+                        vm_address_t figure_setup_folder = rbx_instance_find_first_child(task, current_room, "FigureSetup");
+                        vm_address_t figure_model = rbx_instance_find_first_child(task, figure_setup_folder, "FigureRagdoll");
+                        if (figure_model)
+                        {
+                            figure_part = rbx_instance_find_first_child(task, figure_model, "Root");
+                            figure_exists = true;
+                        }
+                        
                         vm_address_t current_room_assets_folder = rbx_instance_find_first_child(task, current_room, "Assets");
+                        
                         vm_address_t lever_model = rbx_instance_find_first_child(task, current_room_assets_folder, "LeverForGate");
                         if (lever_model)
                         {
                             lever = rbx_instance_find_first_child(task, lever_model, "Main");
                             lever_exists = true;
                         }
+                        
                         vm_address_t key_obtain = rbx_instance_find_first_child(task, current_room_assets_folder, "KeyObtain");
                         if (key_obtain)
                         {
-                            key_exists = true;
                             key = rbx_instance_find_first_child(task, key_obtain, "Hitbox");
+                            key_exists = true;
+                        }
+                        
+                        vm_address_t electrical_key_obtain = rbx_instance_find_first_child(task, current_room_assets_folder, "ElectricalKeyObtain");
+                        if (electrical_key_obtain)
+                        {
+                            electrical_key = rbx_instance_find_first_child(task, key_obtain, "Hitbox");
+                            electrical_key_exists = true;
                         }
                         
                         long current_room_asset_count = 0;
@@ -151,23 +176,26 @@ void doors_cheat(task_t task)
                         if (current_room_assets)
                         {
                             int hint_book_index = 0;
+                            int snare_index = 0;
                             for (int i = 0 ; i < current_room_asset_count ; i++)
                             {
                                 vm_address_t asset = current_room_assets[i].child_address;
-                                vm_address_t hintbook = rbx_instance_find_first_child(task, asset, "HintBook");
-                                vm_address_t livehintbook = rbx_instance_find_first_child(task, asset, "LiveHintBook");
-                                if (hintbook)
+                                char asset_name_len = 0;
+                                char* asset_name = rbx_instance_get_name(task, asset, &asset_name_len);
+                                if (strcmp(asset_name, "Snare") == 0)
                                 {
-                                    if (livehintbook)
-                                    {
-                                        hint_books[hint_book_index] = hintbook;
-                                    }
-                                    else //this is to avoid "dead" esp, or when the esp is outlining an object we don't need
-                                    {
-                                        hint_books[hint_book_index] = 0;
-                                    }
+                                    vm_address_t snare_hitbox = rbx_instance_find_first_child(task, asset, "Hitbox");
+                                    snares[snare_index] = snare_hitbox;
+                                    snare_index++;
+                                }
+                                vm_address_t livehintbook = rbx_instance_find_first_child(task, asset, "LiveHintBook");
+                                vm_address_t livehintbookbase = rbx_instance_find_first_child(task, livehintbook, "Base");
+                                if (livehintbookbase)
+                                {
+                                    hint_books[hint_book_index] = livehintbookbase;
                                     hint_book_index++;
                                 }
+                                
                                 long asset_child_count = 0;
                                 rbx_child_t* asset_children = rbx_instance_get_children(task, asset, &asset_child_count);
                                 if (asset_children)
@@ -196,13 +224,15 @@ void doors_cheat(task_t task)
                                             }
                                         }
                                         vm_deallocate(mach_task_self_, (vm_address_t)name, nl);
-                                        usleep(100);
+                                        usleep(50);
                                     }
                                     vm_deallocate(mach_task_self_, (vm_address_t)asset_children, asset_child_count * sizeof(rbx_child_t));
                                 }
-                                usleep(100);
+                                usleep(50);
                             }
                             vm_deallocate(mach_task_self_, (vm_address_t)current_room_assets, current_room_asset_count * sizeof(rbx_child_t));
+                            hint_book_count = hint_book_index;
+                            snare_count = snare_index;
                         }
                     }
                     vm_deallocate(mach_task_self_, (vm_address_t)current_rooms, current_rooms_count * sizeof(rbx_child_t));
@@ -217,9 +247,17 @@ void doors_cheat(task_t task)
             {
                 key = 0;
             }
+            if (electrical_key_exists == false)
+            {
+                electrical_key = 0;
+            }
             if (lever_exists == false)
             {
                 lever = 0;
+            }
+            if (figure_exists == false)
+            {
+                figure_part = 0;
             }
             if (monster_exists == false)
             {
@@ -244,7 +282,7 @@ void doors_cheat(task_t task)
                 vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
             }
 
-            usleep(1000);
+            usleep(10000);
         }
     });
     
@@ -269,7 +307,7 @@ void doors_cheat(task_t task)
                 }
             }
             
-            for (int i = 0 ; i < 8 ; i++)
+            for (int i = 0 ; i < hint_book_count ; i++)
             {
                 vm_address_t hint_book = hint_books[i];
                 if (hint_book)
@@ -280,6 +318,22 @@ void doors_cheat(task_t task)
                         camera_cframe = rbx_camera_get_cframe(task, camera);
                         rbx_cframe_t hint_book_cframe = rbx_basepart_get_cframe(task, hint_book);
                         rbx_draw_esp_box(task, hint_book_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width, hint_book_esp_color, fov, 0.75, 2, 0, 0, window_w, window_h, esp_index, true);
+                        esp_index++;
+                    }
+                }
+            }
+            
+            for (int i = 0 ; i < snare_count ; i++)
+            {
+                vm_address_t snare = snares[i];
+                if (snare)
+                {
+                    vm_address_t parent = rbx_instance_get_parent(task, snare);
+                    if (parent)
+                    {
+                        camera_cframe = rbx_camera_get_cframe(task, camera);
+                        rbx_cframe_t snare_cframe = rbx_basepart_get_cframe(task, snare);
+                        rbx_draw_esp_box(task, snare_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width, hint_book_esp_color, fov, 2.2, 2.2, 0, 0, window_w, window_h, esp_index, true);
                         esp_index++;
                     }
                 }
@@ -309,20 +363,17 @@ void doors_cheat(task_t task)
                 }
             }
             
-            char hidden = false;
-            ESP_Frame frame;
-            frame.x = 0;
-            frame.y = window_h - 200;
-            frame.w = window_w;
-            frame.h = 40;
-            border_width = 0;
-            vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)&hidden, 1);
-            vm_write(task, esp_box_text_array + (esp_index * MAX_ESP_TEXT_SIZE), (vm_address_t)current_event, MAX_ESP_TEXT_SIZE);
-            vm_write(task, esp_box_frame_array + (esp_index * sizeof(ESP_Frame)), (vm_address_t)&frame, sizeof(ESP_Frame));
-            vm_write(task, esp_box_color_array + (esp_index * sizeof(ESP_Color)), (vm_address_t)&monster_esp_color, sizeof(ESP_Color));
-            vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
-            esp_index++;
-            border_width = 2;
+            if (figure_part)
+            {
+                vm_address_t parent = rbx_instance_get_parent(task, figure_part);
+                if (parent)
+                {
+                    camera_cframe = rbx_camera_get_cframe(task, camera);
+                    rbx_cframe_t figure_cframe = rbx_basepart_get_cframe(task, figure_part);
+                    rbx_draw_esp_box(task, figure_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width, figure_esp_color, fov, 5, 10, 0, 0, window_w, window_h, esp_index, true);
+                    esp_index++;
+                }
+            }
             
             if (monster_part)
             {
@@ -330,12 +381,29 @@ void doors_cheat(task_t task)
                 if (parent)
                 {
                     camera_cframe = rbx_camera_get_cframe(task, camera);
-                    rbx_cframe_t my_hrp_cframe = rbx_basepart_get_cframe(task, my_hrp);
                     rbx_cframe_t monster_cframe = rbx_basepart_get_cframe(task, monster_part);
                     rbx_draw_esp_box(task, monster_cframe.pos, camera_cframe, esp_box_hidden_array, esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width, monster_esp_color, fov, 5, 5, 0, 0, window_w, window_h, esp_index, true);
-                    float dist = vector3_dist_dif(my_hrp_cframe.pos, monster_cframe.pos);
+                    float dist = vector3_dist_dif(camera_cframe.pos, monster_cframe.pos);
                     sprintf(current_event, current_event_format, dist);
                     esp_index++;
+                    
+                    //Draw the message
+                    if (dist < 9999) //The monster is very far away when it's a false positive
+                    {
+                        char hidden = false;
+                        ESP_Frame frame;
+                        frame.x = 0;
+                        frame.y = window_h - 200;
+                        frame.w = window_w;
+                        frame.h = 40;
+                        border_width = 0;
+                        vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)&hidden, 1);
+                        vm_write(task, esp_box_text_array + (esp_index * MAX_ESP_TEXT_LENGTH), (vm_address_t)current_event, MAX_ESP_TEXT_LENGTH);
+                        vm_write(task, esp_box_frame_array + (esp_index * sizeof(ESP_Frame)), (vm_address_t)&frame, sizeof(ESP_Frame));
+                        vm_write(task, esp_box_color_array + (esp_index * sizeof(ESP_Color)), (vm_address_t)&monster_esp_color, sizeof(ESP_Color));
+                        vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
+                        esp_index++;
+                    }
                 }
             }
             

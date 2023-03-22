@@ -55,7 +55,7 @@ void emergency_response_cheat(task_t task)
     
     static vm_address_t closest_enemy_head;
     static char closest_enemy_exists = false;
-    static const float max_delta_ratio = 0.125;
+    static const float max_delta_ratio = 0.245;
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
@@ -78,7 +78,8 @@ void emergency_response_cheat(task_t task)
             }
             
             bool __cee = false;
-            float old_dist = 999999;
+            float old_dist = 999;
+            float old_delta_ratio = max_delta_ratio;
             
             long plr_count = 0;
             rbx_child_t* player_list = rbx_instance_get_children(task, players_service, &plr_count);
@@ -99,8 +100,9 @@ void emergency_response_cheat(task_t task)
                     {
                         vm_address_t team = rbx_player_get_team(task, player);
                         vm_address_t character = rbx_player_get_character(task, player);
+                        vm_address_t RAGDOLLED_bool_value = rbx_instance_find_first_child(task, character, "RAGDOLLED");
                         vm_address_t head = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
-                        if (head)
+                        if (head && !RAGDOLLED_bool_value)
                         {
                             player_torsos[__plr_count] = head;
                             rbx_brickcolor_info_t color_info = rbx_brick_color_index(rbx_team_get_brick_color(task, team));
@@ -118,14 +120,12 @@ void emergency_response_cheat(task_t task)
                             const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
                             const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
                             const float delta_ratio = (delta_dist/dist);
-                            if (old_dist > dist)
+                            if (old_dist > dist && old_delta_ratio > delta_ratio)
                             {
-                                if (max_delta_ratio > delta_ratio)
-                                {
-                                    __cee = true;
-                                    old_dist = dist;
-                                    closest_enemy_head = head;
-                                }
+                                __cee = true;
+                                old_dist = dist;
+                                //old_delta_ratio = delta_ratio
+                                closest_enemy_head = head;
                             }
                         }
                     }
@@ -157,6 +157,17 @@ void emergency_response_cheat(task_t task)
             usleep(20);
         }
     });
+    
+    /*
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            rbx_print_descendants(task, rbx_player_get_character(task, local_player), 0, 2);
+            sleep(3w);
+        }
+    });*/
+    
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {

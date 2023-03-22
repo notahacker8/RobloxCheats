@@ -6,22 +6,22 @@ void arsenal_cheat(task_t task)
     printf("- ARSENAL -\n");
     static mach_msg_type_number_t data_cnt;
     
-    void* handle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
+    void* dlhandle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
     
     vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB__);
     
-    vm_offset_t left_mouse_down_offset = gdso(handle, s_load_address, "LEFT_MOUSE_DOWN");
-    vm_offset_t esp_enabled_offset = gdso(handle, s_load_address, "ESP_ENABLED");
-    vm_offset_t window_w_offset = gdso(handle, s_load_address, "WINDOW_W");
-    vm_offset_t window_h_offset = gdso(handle, s_load_address, "WINDOW_H");
-    vm_offset_t esp_usleep_time_offset = gdso(handle, s_load_address, "ESP_USLEEP_TIME");
+    vm_offset_t left_mouse_down_offset = gdso(dlhandle, s_load_address, "LEFT_MOUSE_DOWN");
+    vm_offset_t esp_enabled_offset = gdso(dlhandle, s_load_address, "ESP_ENABLED");
+    vm_offset_t window_w_offset = gdso(dlhandle, s_load_address, "WINDOW_W");
+    vm_offset_t window_h_offset = gdso(dlhandle, s_load_address, "WINDOW_H");
+    vm_offset_t esp_usleep_time_offset = gdso(dlhandle, s_load_address, "ESP_USLEEP_TIME");
     
-    vm_offset_t esp_box_hidden_array_offset = gdso(handle, s_load_address, "ESP_BOX_HIDDEN_ARRAY");
-    vm_offset_t esp_box_frame_array_offset = gdso(handle, s_load_address, "ESP_BOX_FRAME_ARRAY");
-    vm_offset_t esp_box_color_array_offset = gdso(handle, s_load_address, "ESP_BOX_COLOR_ARRAY");
-    vm_offset_t esp_box_border_width_array_offset = gdso(handle, s_load_address, "ESP_BOX_BORDER_WIDTH_ARRAY");
+    vm_offset_t esp_box_hidden_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_HIDDEN_ARRAY");
+    vm_offset_t esp_box_frame_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_FRAME_ARRAY");
+    vm_offset_t esp_box_color_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_COLOR_ARRAY");
+    vm_offset_t esp_box_border_width_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_BORDER_WIDTH_ARRAY");
     
-    dlclose(handle);
+    dlclose(dlhandle);
     
     vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB__);
     
@@ -52,15 +52,18 @@ void arsenal_cheat(task_t task)
     
     static vm_address_t closest_enemy_head;
     static char closest_enemy_exists = false;
-    static const float max_delta_ratio = 0.125;
-    static const float interpolation = 3;  //1 = snap-on ; 3 = rough (recommended) ; 10 = smooth (not for semi-automatics)
+    static const float max_delta_ratio = 0.135;
+    static const float interpolation = 15;
     
     static ESP_Color esp_color;
     esp_color.r = 0;
     esp_color.g = 1;
     esp_color.b = 0;
     esp_color.a = 1;
+    
+    static ESP_Color target_color = {.r = 1, .g = 0, .b = 1, .a = 1};
 
+    static useconds_t trigger_usleep_time = 75;
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
@@ -83,7 +86,8 @@ void arsenal_cheat(task_t task)
             }
             
             bool __cee = false;
-            float old_dist = 999999;
+            float old_dist = 500;
+            float old_delta_ratio = max_delta_ratio;
             int enemy_head_index = 0;
             
             long player_count = 0;
@@ -119,14 +123,11 @@ void arsenal_cheat(task_t task)
                                     const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
                                     const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
                                     const float delta_ratio = (delta_dist/dist);
-                                    if (old_dist > dist)
+                                    if (old_dist > dist && old_delta_ratio > delta_ratio)
                                     {
-                                        if (max_delta_ratio > delta_ratio)
-                                        {
-                                            __cee = true;
-                                            old_dist = dist;
-                                            closest_enemy_head = head;
-                                        }
+                                        __cee = true;
+                                        old_dist = dist;
+                                        closest_enemy_head = head;
                                     }
                                 }
                             }
@@ -137,7 +138,7 @@ void arsenal_cheat(task_t task)
             }
             closest_enemy_exists = __cee;
             enemy_count = enemy_head_index;
-            usleep(100000);
+            usleep(300000);
         }
     });
     
@@ -155,6 +156,7 @@ void arsenal_cheat(task_t task)
                 vm_deallocate(mach_task_self_, read_data, 1);
                 if (lmd == true && closest_enemy_exists == true && closest_enemy_head)
                 {
+                    trigger_usleep_time = 10;
                     rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, closest_enemy_head);
                     rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
                     const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
@@ -174,8 +176,12 @@ void arsenal_cheat(task_t task)
                         rbx_camera_set_cframe(task, camera, &camera_cframe);
                     }
                 }
+                else
+                {
+                    trigger_usleep_time = 75;
+                }
             }
-            usleep(100);
+            usleep(trigger_usleep_time);
         }
     });
     
@@ -184,35 +190,45 @@ void arsenal_cheat(task_t task)
     {
         for (;;)
         {
-            if (enemy_count > 0)
+            if (enemy_count > 0 && enemy_count < (RBX_ARSENAL_MAX_PLAYER_COUNT + 1))
             {
                 int esp_index = 0;
                 for (long i = 0 ; i < enemy_count ; i++)
                 {
-                    usleep(esput/enemy_count);
-                    
+                    ESP_Color color = esp_color;
+                    float border_width = 2;
                     vm_address_t enemy_head = enemy_heads[i];
                     if (enemy_head)
                     {
                         vm_address_t parent = rbx_instance_get_parent(task, enemy_head);
+                        if (enemy_head == closest_enemy_head && closest_enemy_exists)
+                        {
+                            color = target_color;
+                            border_width = 3;
+                        }
                         if (parent)
                         {
                             rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, enemy_head);
-                            //printf("%p [%d] (%f %f %f)\n", enemy_head, i, head_cframe.pos.x, head_cframe.pos.y, head_cframe.pos.z);
                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
                             float fov = rbx_camera_get_field_of_view(task, camera);
-                            rbx_draw_esp_box(task, head_cframe.pos,
-                                             camera_cframe, esp_box_hidden_array,
-                                             esp_box_frame_array, esp_box_color_array,esp_box_border_width_array, 2,
-                                             esp_color, fov, 3, 3, 0, 0, window_w, window_h, esp_index, true);
-                            esp_index++;
+                            if (esp_index < MAX_ESP_COUNT)
+                            {
+                                rbx_draw_esp_box(task, head_cframe.pos,
+                                                 camera_cframe, esp_box_hidden_array,
+                                                 esp_box_frame_array, esp_box_color_array,esp_box_border_width_array, border_width,
+                                                 color, fov, 3, 3, 0, 0, window_w, window_h, esp_index, true);
+                                esp_index++;
+                            }
                         }
                     }
+                    usleep(esput/enemy_count);
                 }
-                char hiddens[MAX_ESP_COUNT - esp_index];
-                memset(hiddens, 1, sizeof(hiddens));
-                vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)hiddens, (int)sizeof(hiddens));
-                
+                if (esp_index < MAX_ESP_COUNT)
+                {
+                    char hiddens[MAX_ESP_COUNT - esp_index];
+                    memset(hiddens, 1, sizeof(hiddens));
+                    vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)hiddens, (int)sizeof(hiddens));
+                }
             }
             else
             {
