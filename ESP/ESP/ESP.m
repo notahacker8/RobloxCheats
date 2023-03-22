@@ -2,7 +2,7 @@
 //  ESP.m
 //  ESP
 //
-//  Created by Dimitri Armendariz on 9/13/22.
+//  Created by me on 9/13/22.
 //
 
 #import "ESP.h"
@@ -42,6 +42,20 @@ typedef struct
 }
 Input;
 
+typedef struct
+{
+    int type;
+    vm_address_t address;
+    char arguments[8 * 6];
+    char return_bytes[8];
+    int finished;
+}
+RemoteFunctionCall;
+
+
+typedef void r_void_p_void_f(void);
+typedef void r_void_p_long_f(long);
+
 
 
 
@@ -76,6 +90,7 @@ void sendKeyDown(int window_index, int keycode, char* characters)
 void sendKeyUp(int window_index, int keycode, char* characters)
 {
     [NSApp.windows[window_index] sendEvent:[NSEvent keyEventWithType:NSEventTypeKeyUp location:CGPointZero modifierFlags:0 timestamp:0 windowNumber:0 context:NULL characters:[NSString stringWithCString:characters encoding:NSStringEncodingConversionAllowLossy] charactersIgnoringModifiers:[NSString stringWithCString:characters encoding:NSStringEncodingConversionAllowLossy] isARepeat:FALSE keyCode:keycode]];
+    
 }
 void sendLeftMouseDown(int window_index, CGPoint point)
 {
@@ -101,9 +116,10 @@ unsigned char ESP_ALLOCATED;
 extern unsigned char ESP_ALLOCATED;
 
 
-#define MAX_ESP_COUNT 400
+#define MAX_ESP_COUNT 200
 #define MAX_INPUT_COUNT 100
-#define MAX_ESP_TEXT_SIZE 50
+//#define MAX_FUNCTION_COUNT 100
+#define MAX_ESP_TEXT_LENGTH 50
 
 
 float AIMBOT_X;
@@ -120,8 +136,15 @@ extern float WINDOW_H;
 
 
 
+char LEFT_MOUSE_DOWN = false;
+extern char LEFT_MOUSE_DOWN;
+
+
 
 void* ESP_BOX_ARRAY[MAX_ESP_COUNT];
+
+int ESP_COUNT = 0;
+extern int ESP_COUNT;
 
 ESP_Frame ESP_BOX_FRAME_ARRAY[MAX_ESP_COUNT];
 extern ESP_Frame ESP_BOX_FRAME_ARRAY[MAX_ESP_COUNT];
@@ -135,8 +158,8 @@ extern unsigned char ESP_BOX_HIDDEN_ARRAY[MAX_ESP_COUNT];
 float ESP_BOX_BORDER_WIDTH_ARRAY[MAX_ESP_COUNT];
 extern float ESP_BOX_BORDER_WIDTH_ARRAY[MAX_ESP_COUNT];
 
-char ESP_BOX_TEXT_ARRAY[MAX_ESP_COUNT * MAX_ESP_TEXT_SIZE];
-extern char ESP_BOX_TEXT_ARRAY[MAX_ESP_COUNT * MAX_ESP_TEXT_SIZE];
+char ESP_BOX_TEXT_ARRAY[MAX_ESP_COUNT * MAX_ESP_TEXT_LENGTH];
+extern char ESP_BOX_TEXT_ARRAY[MAX_ESP_COUNT * MAX_ESP_TEXT_LENGTH];
 
 
 
@@ -153,6 +176,10 @@ extern useconds_t AIMBOT_USLEEP_TIME;
 useconds_t INPUT_USLEEP_TIME = 300000;
 extern useconds_t INPUT_USLEEP_TIME;
 
+/*
+useconds_t FUNCTION_USLEEP_TIME = 300000;
+extern useconds_t FUNCTION_USLEEP_TIME;
+*/
 
 
 
@@ -166,8 +193,21 @@ extern unsigned int INPUT_QUEUE_COUNT;
 Input INPUT_QUEUE[MAX_INPUT_COUNT];
 extern Input INPUT_QUEUE[MAX_INPUT_COUNT];
 
-char LEFT_MOUSE_DOWN = false;
-extern char LEFT_MOUSE_DOWN;
+
+/*
+unsigned char FUNCTION_QUEUE_FINISHED = true;
+extern unsigned char FUNCTION_QUEUE_FINISHED;
+
+unsigned int FUNCTION_QUEUE_COUNT = 0;
+extern unsigned int FUNCTION_QUEUE_COUNT;
+
+RemoteFunctionCall FUNCTION_QUEUE[MAX_INPUT_COUNT];
+extern RemoteFunctionCall FUNCTION_INPUT_QUEUE[MAX_INPUT_COUNT];
+*/
+
+
+
+
 
 
 
@@ -185,7 +225,9 @@ void initialize(void)
         LEFT_MOUSE_DOWN = false;
         return event;
     }];
+    
     printf("\n-> DYLIB INJECTED\n\n");
+    
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
@@ -251,9 +293,8 @@ void initialize(void)
             {
                 dispatch_async(dispatch_get_main_queue(), ^
                 {
-                    for (int i = 0 ; i < MAX_ESP_COUNT ; i++)
+                    for (int i = 0 ; i < ESP_COUNT ; i++)
                     {
-                        
                         NSTextField* esp_box = (__bridge NSTextField*)(ESP_BOX_ARRAY[i]);
                         ESP_Frame espbf = ESP_BOX_FRAME_ARRAY[i];
                         ESP_Color espbc = ESP_BOX_COLOR_ARRAY[i];
@@ -266,7 +307,7 @@ void initialize(void)
                         
                         esp_box.frame = frame;
                         esp_box.hidden = ESP_BOX_HIDDEN_ARRAY[i];
-                        char* c_str = (char*)((vm_address_t)ESP_BOX_TEXT_ARRAY + (i * MAX_ESP_TEXT_SIZE));
+                        char* c_str = (char*)((vm_address_t)ESP_BOX_TEXT_ARRAY + (i * MAX_ESP_TEXT_LENGTH));
                         NSString* objc_str = [NSString stringWithUTF8String:c_str];
                         esp_box.stringValue = objc_str;
                         
@@ -300,7 +341,7 @@ void initialize(void)
                 {
                     for (int i = 0 ; i < INPUT_QUEUE_COUNT ; i++)
                     {
-                        if (i < 100)
+                        if (i < MAX_INPUT_COUNT)
                         {
                             Input input = INPUT_QUEUE[i];
                             //printf("inputs[%d], input type: %d\n", i, input.type);
@@ -338,8 +379,40 @@ void initialize(void)
         }
     });
     
-    
-    
+    /*
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            usleep(FUNCTION_USLEEP_TIME);
+            if (FUNCTION_QUEUE_FINISHED == false)
+            {
+                for (int i = 0 ; i < FUNCTION_QUEUE_COUNT ; i++)
+                {
+                    if (i < MAX_FUNCTION_COUNT)
+                    {
+                        RemoteFunctionCall func = FUNCTION_QUEUE[i];
+                        if (func.type == 0)
+                        {
+                            ((r_void_p_void_f*)func.address)();
+                            printf("Calling %p()\n", func.address);
+                            func.finished = true;
+                            func.finished = true;
+                        }
+                        if (func.type == 1)
+                        {
+                            printf("Calling %p(%p)\n", func.address, ((long*)(func.arguments))[0]);
+                            ((r_void_p_long_f*)func.address)(((long*)(func.arguments))[0]);
+                            func.finished = true;
+                        }
+                    }
+                }
+                FUNCTION_QUEUE_COUNT = 0;
+                FUNCTION_QUEUE_FINISHED = true;
+            }
+        }
+    });
+    */
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
