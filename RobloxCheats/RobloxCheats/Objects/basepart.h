@@ -51,7 +51,7 @@ void rbx_basepart_set_velocity(task_t task, vm_address_t basepart, vector3_t new
 vector3_t rbx_basepart_get_size(task_t task, vm_address_t basepart)
 {
     vm_address_t p_a = rbx_basepart_get_properties_address(task, basepart);
-    return vm_read_vector3_value(task, p_a + RBX_PART_PROPERTIES_SIZE_OFFSET + sizeof(rbx_cframe_t));
+    return vm_read_vector3_value(task, p_a + RBX_PART_PROPERTIES_SIZE_OFFSET);
 }
 
 void rbx_basepart_set_size(task_t task, vm_address_t basepart, vector3_t new_size)

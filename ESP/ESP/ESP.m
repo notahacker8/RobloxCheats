@@ -249,13 +249,13 @@ void initialize(void)
     }];
     
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent * _Nullable(NSEvent * _Nonnull event) {
-        char key_ascii = [event.characters cStringUsingEncoding:NSASCIIStringEncoding][0];
+        char key_ascii = [event.characters cStringUsingEncoding:NSNonLossyASCIIStringEncoding][0];
         ((char*)(KEYS_DOWN + key_ascii))[0] = true;
         printf("keycode: %d\n", (int)event.keyCode);
         return event;
     }];
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyUp handler:^NSEvent * _Nullable(NSEvent * _Nonnull event) {
-        char key_ascii = [event.characters cStringUsingEncoding:NSASCIIStringEncoding][0];
+        char key_ascii = [event.characters cStringUsingEncoding:NSNonLossyASCIIStringEncoding][0];
         ((char*)(KEYS_DOWN + key_ascii))[0] = false;
         return event;
     }];

@@ -529,7 +529,7 @@ int main(int argc, char** argv)
         //aimblox_cheat(task);
         //arabic_fortnite_cheat(task);
         //doors_test(task);
-        //doors_cheat(task);
+        doors_cheat(task);
         //flood_escape_classic_cheat(task);
         //phantom_forces_cheat(task);
         //find_object_offsets(task, "blockmincer");
