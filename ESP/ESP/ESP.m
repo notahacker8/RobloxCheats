@@ -139,6 +139,12 @@ extern float WINDOW_H;
 char LEFT_MOUSE_DOWN = false;
 extern char LEFT_MOUSE_DOWN;
 
+unsigned char KEYS_DOWN[255];
+extern unsigned char KEYS_DOWN[255];
+
+char SHOULD_QUIT = false;
+extern char SHOULD_QUIT;
+
 
 
 void* ESP_BOX_ARRAY[MAX_ESP_COUNT];
@@ -205,9 +211,24 @@ RemoteFunctionCall FUNCTION_QUEUE[MAX_INPUT_COUNT];
 extern RemoteFunctionCall FUNCTION_INPUT_QUEUE[MAX_INPUT_COUNT];
 */
 
-
-
-
+void print_subviews(NSView* view, int tab_index)
+{
+    NSString* str = [NSString stringWithFormat:@"%@", view];
+    for (int i = 0 ; i < tab_index ; i++)
+    {
+        printf("\t");
+    }
+    printf("%s\n", [str cStringUsingEncoding:NSASCIIStringEncoding]);
+    NSArray* subviews = [view subviews];
+    for (int i = 0 ; i < subviews.count ; i++)
+    {
+        for (int x = 0 ; x < tab_index + 1 ; x++)
+        {
+            printf("\t");
+        }
+        print_subviews(subviews[i], tab_index + 1);
+    }
+}
 
 
 
@@ -216,7 +237,8 @@ void initialize(void)
 {
     
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown handler:^NSEvent * _Nullable(NSEvent * _Nonnull event) {
-        //printf("%f, %f\n", event.locationInWindow.x, event.locationInWindow.y);
+        printf("%f, %f\n", event.locationInWindow.x, event.locationInWindow.y);
+        //print_subviews(NSApp.windows[0].contentView, 0);
         LEFT_MOUSE_DOWN = true;
         return event;
     }];
@@ -226,12 +248,29 @@ void initialize(void)
         return event;
     }];
     
+    [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent * _Nullable(NSEvent * _Nonnull event) {
+        char key_ascii = [event.characters cStringUsingEncoding:NSASCIIStringEncoding][0];
+        ((char*)(KEYS_DOWN + key_ascii))[0] = true;
+        printf("keycode: %d\n", (int)event.keyCode);
+        return event;
+    }];
+    [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyUp handler:^NSEvent * _Nullable(NSEvent * _Nonnull event) {
+        char key_ascii = [event.characters cStringUsingEncoding:NSASCIIStringEncoding][0];
+        ((char*)(KEYS_DOWN + key_ascii))[0] = false;
+        return event;
+    }];
+    
     printf("\n-> DYLIB INJECTED\n\n");
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
         {
+            if (SHOULD_QUIT)
+            {
+                void** ptr = NULL;
+                (*ptr) = NULL;
+            }
             if (ESP_ALLOCATED == false && ESP_ENABLED == true)
             {
                 dispatch_async(dispatch_get_main_queue(), ^
@@ -295,29 +334,32 @@ void initialize(void)
                 {
                     for (int i = 0 ; i < ESP_COUNT ; i++)
                     {
-                        NSTextField* esp_box = (__bridge NSTextField*)(ESP_BOX_ARRAY[i]);
-                        ESP_Frame espbf = ESP_BOX_FRAME_ARRAY[i];
-                        ESP_Color espbc = ESP_BOX_COLOR_ARRAY[i];
-                        
-                        NSRect frame;
-                        frame.origin.x = espbf.x;
-                        frame.origin.y = espbf.y;
-                        frame.size.width = espbf.w;
-                        frame.size.height = espbf.h;
-                        
-                        esp_box.frame = frame;
-                        esp_box.hidden = ESP_BOX_HIDDEN_ARRAY[i];
-                        char* c_str = (char*)((vm_address_t)ESP_BOX_TEXT_ARRAY + (i * MAX_ESP_TEXT_LENGTH));
-                        NSString* objc_str = [NSString stringWithUTF8String:c_str];
-                        esp_box.stringValue = objc_str;
-                        
-                        CGColorRef cg_color = CGColorCreateSRGB(espbc.r, espbc.g, espbc.b, espbc.a);
-                        NSColor* ns_color = [NSColor colorWithCGColor:cg_color];
-                        esp_box.layer.borderColor = cg_color;
-                        esp_box.textColor = ns_color;
-                        esp_box.layer.borderWidth = ESP_BOX_BORDER_WIDTH_ARRAY[i];
-                        
-                        CGColorRelease(cg_color);
+                        if (i < MAX_ESP_COUNT)
+                        {
+                            NSTextField* esp_box = (__bridge NSTextField*)(ESP_BOX_ARRAY[i]);
+                            ESP_Frame espbf = ESP_BOX_FRAME_ARRAY[i];
+                            ESP_Color espbc = ESP_BOX_COLOR_ARRAY[i];
+                            
+                            NSRect frame;
+                            frame.origin.x = espbf.x;
+                            frame.origin.y = espbf.y;
+                            frame.size.width = espbf.w;
+                            frame.size.height = espbf.h;
+                            
+                            esp_box.frame = frame;
+                            esp_box.hidden = ESP_BOX_HIDDEN_ARRAY[i];
+                            char* c_str = (char*)((vm_address_t)ESP_BOX_TEXT_ARRAY + (i * MAX_ESP_TEXT_LENGTH));
+                            NSString* objc_str = [NSString stringWithUTF8String:c_str];
+                            esp_box.stringValue = objc_str;
+                            
+                            CGColorRef cg_color = CGColorCreateSRGB(espbc.r, espbc.g, espbc.b, espbc.a);
+                            NSColor* ns_color = [NSColor colorWithCGColor:cg_color];
+                            esp_box.layer.borderColor = cg_color;
+                            esp_box.textColor = ns_color;
+                            esp_box.layer.borderWidth = ESP_BOX_BORDER_WIDTH_ARRAY[i];
+                            
+                            CGColorRelease(cg_color);
+                        }
                     }
                 });
             }

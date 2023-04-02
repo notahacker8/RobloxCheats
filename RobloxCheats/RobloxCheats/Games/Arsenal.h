@@ -3,15 +3,16 @@
 
 void arsenal_cheat(task_t task)
 {
-    printf("- ARSENAL -\n");
+    printf("- ARSENAL (AIMBOT + ESP) -\n");
     static mach_msg_type_number_t data_cnt;
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
+    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
     
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB__);
+    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
     
     vm_offset_t left_mouse_down_offset = gdso(dlhandle, s_load_address, "LEFT_MOUSE_DOWN");
     vm_offset_t esp_enabled_offset = gdso(dlhandle, s_load_address, "ESP_ENABLED");
+    vm_offset_t esp_count_offset = gdso(dlhandle, s_load_address, "ESP_COUNT");
     vm_offset_t window_w_offset = gdso(dlhandle, s_load_address, "WINDOW_W");
     vm_offset_t window_h_offset = gdso(dlhandle, s_load_address, "WINDOW_H");
     vm_offset_t esp_usleep_time_offset = gdso(dlhandle, s_load_address, "ESP_USLEEP_TIME");
@@ -23,10 +24,12 @@ void arsenal_cheat(task_t task)
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB__);
+    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
     
     char esp_enabled = true;
     vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, 1);
+    int esp_count = RBX_ARSENAL_MAX_PLAYER_COUNT;
+    vm_write(task, load_address + esp_count_offset, (vm_offset_t)&esp_count, 4);
     
     vm_address_t esp_box_hidden_array = load_address + esp_box_hidden_array_offset;
     vm_address_t esp_box_frame_array = load_address + esp_box_frame_array_offset;
@@ -36,16 +39,17 @@ void arsenal_cheat(task_t task)
     static float window_w;
     static float window_h;
     
-    useconds_t esput = 500;
+    useconds_t esput = 1000;
     vm_write(task, load_address + esp_usleep_time_offset, (vm_address_t)&esput, sizeof(useconds_t));
     
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
     vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
-    vm_address_t teams_service = rbx_instance_find_first_child_of_class(task, game, "Teams");
     vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
     
     vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
+    vm_address_t player_gui = rbx_instance_find_first_child_of_class(task, local_player, "PlayerGui");
+    vm_address_t nametags_folder = rbx_instance_find_first_child(task, player_gui, "Nametags");
     
     static vm_address_t enemy_heads[RBX_ARSENAL_MAX_PLAYER_COUNT];
     static long enemy_count = 0;
@@ -69,21 +73,8 @@ void arsenal_cheat(task_t task)
     {
         for (;;)
         {
-            kern_return_t kr;
-            vm_address_t read_data;
-            kr = vm_read(task, load_address + window_w_offset, 4, &read_data, &data_cnt);
-            if (kr == KERN_SUCCESS)
-            {
-                window_w = *(float*)read_data;
-                vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
-            }
-            
-            kr = vm_read(task, load_address + window_h_offset, 4, &read_data, &data_cnt);
-            if (kr == KERN_SUCCESS)
-            {
-                window_h = *(float*)read_data;
-                vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
-            }
+            window_w = ((int_float_u)(vm_read_4byte_value(task, load_address + window_w_offset))).f;
+            window_h = ((int_float_u)(vm_read_4byte_value(task, load_address + window_h_offset))).f;
             
             bool __cee = false;
             float old_dist = 500;
@@ -99,38 +90,39 @@ void arsenal_cheat(task_t task)
                     vm_address_t player = player_list[i].child_address;
                     if (player && player != local_player)
                     {
-                        
-                        vm_address_t my_team = rbx_player_get_team(task, local_player);
-                        vm_address_t team = rbx_player_get_team(task, player);
-                        if (team != my_team)
+                        char pnl = 0;
+                        char* pn = rbx_instance_get_name(task, player, &pnl);
+                        if (pn)
                         {
-                            vm_address_t character = rbx_player_get_character(task, player);
-                            if (character)
+                            if (!rbx_instance_find_first_child(task, nametags_folder, pn))
                             {
-                                //vm_address_t head = rbx_instance_find_first_child(task, character, "Head");
-                                //Getting caught is pretty easy when we stack headshots.
-                                vm_address_t head = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
-                                if (head)
+                                vm_address_t character = rbx_player_get_character(task, player);
+                                if (character)
                                 {
-                                    enemy_heads[enemy_head_index] = head;
-                                    enemy_head_index++;
-                                    
-                                    rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, head);
-                                    rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                                    const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
-                                    const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
-                                    const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
-                                    const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
-                                    const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
-                                    const float delta_ratio = (delta_dist/dist);
-                                    if (old_dist > dist && old_delta_ratio > delta_ratio)
+                                    //vm_address_t head = rbx_instance_find_first_child(task, character, "Head");
+                                    //Getting caught is pretty easy when we stack headshots.
+                                    vm_address_t head = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
+                                    if (head)
                                     {
-                                        __cee = true;
-                                        old_dist = dist;
-                                        closest_enemy_head = head;
+                                        enemy_heads[enemy_head_index++] = head;
+                                        rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, head);
+                                        rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
+                                        const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
+                                        const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
+                                        const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                                        const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
+                                        const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
+                                        const float delta_ratio = (delta_dist/dist);
+                                        if (old_dist > dist && old_delta_ratio > delta_ratio)
+                                        {
+                                            __cee = true;
+                                            old_dist = dist;
+                                            closest_enemy_head = head;
+                                        }
                                     }
                                 }
                             }
+                            vm_deallocate(mach_task_self_, (vm_address_t)pn, pnl);
                         }
                     }
                 }
@@ -154,26 +146,30 @@ void arsenal_cheat(task_t task)
             {
                 char lmd = *(char*)read_data;
                 vm_deallocate(mach_task_self_, read_data, 1);
-                if (lmd == true && closest_enemy_exists == true && closest_enemy_head)
+                if (closest_enemy_exists && closest_enemy_head)
                 {
-                    trigger_usleep_time = 10;
-                    rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, closest_enemy_head);
-                    rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                    const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
-                    const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
-                    const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
-                    const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
-                    const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
-                    const float delta_ratio = (delta_dist/dist);
-                    
-                    if (max_delta_ratio > delta_ratio)
+                    trigger_usleep_time = 30;
+                    if (lmd)
                     {
-                        vector3_t new_look_vector = vector3_unit(head_cframe.pos, camera_cframe.pos);
-                        vector3_t inc_look_vector = vector3_div_num(vector3_sub(new_look_vector, camera_look_vector), interpolation);
-                        camera_cframe.r20 += -inc_look_vector.x;
-                        camera_cframe.r21 += -inc_look_vector.y;
-                        camera_cframe.r22 += -inc_look_vector.z;
-                        rbx_camera_set_cframe(task, camera, &camera_cframe);
+                        trigger_usleep_time = 3;
+                        rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, closest_enemy_head);
+                        rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
+                        const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
+                        const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
+                        const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                        const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
+                        const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
+                        const float delta_ratio = (delta_dist/dist);
+                        
+                        if (max_delta_ratio > delta_ratio)
+                        {
+                            vector3_t new_look_vector = vector3_unit(head_cframe.pos, camera_cframe.pos);
+                            vector3_t inc_look_vector = vector3_div_num(vector3_sub(new_look_vector, camera_look_vector), interpolation);
+                            camera_cframe.r20 += -inc_look_vector.x;
+                            camera_cframe.r21 += -inc_look_vector.y;
+                            camera_cframe.r22 += -inc_look_vector.z;
+                            rbx_camera_set_cframe(task, camera, &camera_cframe);
+                        }
                     }
                 }
                 else
@@ -211,24 +207,20 @@ void arsenal_cheat(task_t task)
                             rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, enemy_head);
                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
                             float fov = rbx_camera_get_field_of_view(task, camera);
-                            if (esp_index < MAX_ESP_COUNT)
-                            {
-                                rbx_draw_esp_box(task, head_cframe.pos,
-                                                 camera_cframe, esp_box_hidden_array,
-                                                 esp_box_frame_array, esp_box_color_array,esp_box_border_width_array, border_width,
-                                                 color, fov, 3, 3, 0, 0, window_w, window_h, esp_index, true);
-                                esp_index++;
-                            }
+                            rbx_draw_esp_box(task, head_cframe.pos,
+                                             camera_cframe, esp_box_hidden_array,
+                                             esp_box_frame_array, esp_box_color_array,esp_box_border_width_array, border_width,
+                                             color, fov, 3, 3, 0, 0, window_w, window_h, esp_index, true);
+                            esp_index++;
                         }
                     }
                     usleep(esput/enemy_count);
                 }
-                if (esp_index < MAX_ESP_COUNT)
-                {
-                    char hiddens[MAX_ESP_COUNT - esp_index];
-                    memset(hiddens, 1, sizeof(hiddens));
-                    vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)hiddens, (int)sizeof(hiddens));
-                }
+                
+                char hiddens[MAX_ESP_COUNT - esp_index];
+                memset(hiddens, 1, sizeof(hiddens));
+                vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)hiddens, (int)sizeof(hiddens));
+                
             }
             else
             {

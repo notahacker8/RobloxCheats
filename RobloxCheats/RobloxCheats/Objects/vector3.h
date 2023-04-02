@@ -11,17 +11,6 @@ typedef struct
 vector3_t;
 
 
-vector3_t vector3_init(const float x,
-                       const float y,
-                       const float z)
-{
-    vector3_t _;
-    _.x = x;
-    _.y = y;
-    _.z = z;
-    return _;
-}
-
 vector3_t vector3_mul(const vector3_t _1,
                       const vector3_t _2)
 {
@@ -128,8 +117,7 @@ vector3_t vector3_unit(const vector3_t _1,
 vector3_t vector3_cross_product(const vector3_t _1,
                                 const vector3_t _2)
 {
-    return vector3_init(_1.y * _2.z - _1.z * _2.y, _1.z * _2.x - _1.x * _2.z, _1.x * _2.y - _1.y * _2.x);
+    return (vector3_t){.x = _1.y * _2.z - _1.z * _2.y, .y = _1.z * _2.x - _1.x * _2.z, .z = _1.x * _2.y - _1.y * _2.x};
 }
 
 
-#define VECTOR3_ORIGIN (vector3_init(0, 0, 0))

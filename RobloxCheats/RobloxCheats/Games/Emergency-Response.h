@@ -5,24 +5,26 @@ void emergency_response_cheat(task_t task)
 {
     static mach_msg_type_number_t data_cnt;
     
-    void* handle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
+    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
     
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB__);
+    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
     
-    vm_offset_t left_mouse_down_offset = gdso(handle, s_load_address, "LEFT_MOUSE_DOWN");
-    vm_offset_t esp_enabled_offset = gdso(handle, s_load_address, "ESP_ENABLED");
-    vm_offset_t window_w_offset = gdso(handle, s_load_address, "WINDOW_W");
-    vm_offset_t window_h_offset = gdso(handle, s_load_address, "WINDOW_H");
-    vm_offset_t esp_usleep_time_offset = gdso(handle, s_load_address, "ESP_USLEEP_TIME");
+    vm_offset_t keys_down_offset = gdso(dlhandle, s_load_address, "KEYS_DOWN");
+    vm_offset_t left_mouse_down_offset = gdso(dlhandle, s_load_address, "LEFT_MOUSE_DOWN");
+    vm_offset_t esp_enabled_offset = gdso(dlhandle, s_load_address, "ESP_ENABLED");
+    vm_offset_t window_w_offset = gdso(dlhandle, s_load_address, "WINDOW_W");
+    vm_offset_t window_h_offset = gdso(dlhandle, s_load_address, "WINDOW_H");
+    vm_offset_t esp_usleep_time_offset = gdso(dlhandle, s_load_address, "ESP_USLEEP_TIME");
+    vm_offset_t esp_count_offset = gdso(dlhandle, s_load_address, "ESP_COUNT");
     
-    vm_offset_t esp_box_hidden_array_offset = gdso(handle, s_load_address, "ESP_BOX_HIDDEN_ARRAY");
-    vm_offset_t esp_box_frame_array_offset = gdso(handle, s_load_address, "ESP_BOX_FRAME_ARRAY");
-    vm_offset_t esp_box_color_array_offset = gdso(handle, s_load_address, "ESP_BOX_COLOR_ARRAY");
-    vm_offset_t esp_box_border_width_array_offset = gdso(handle, s_load_address, "ESP_BOX_BORDER_WIDTH_ARRAY");
+    vm_offset_t esp_box_hidden_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_HIDDEN_ARRAY");
+    vm_offset_t esp_box_frame_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_FRAME_ARRAY");
+    vm_offset_t esp_box_color_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_COLOR_ARRAY");
+    vm_offset_t esp_box_border_width_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_BORDER_WIDTH_ARRAY");
     
-    dlclose(handle);
+    dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB__);
+    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
     
     char esp_enabled = true;
     vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, 1);
@@ -35,8 +37,15 @@ void emergency_response_cheat(task_t task)
     static float window_w;
     static float window_h;
     
+    static char is_w_pressed = false;
+    static char is_a_pressed = false;
+    static char is_s_pressed = false;
+    static char is_d_pressed = false;
+    
     useconds_t esput = 1000;
+    static int esp_count = 100;
     vm_write(task, load_address + esp_usleep_time_offset, (vm_address_t)&esput, sizeof(useconds_t));
+    vm_write(task, load_address + esp_count_offset, (vm_offset_t)&esp_count, 4);
     
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
@@ -51,31 +60,19 @@ void emergency_response_cheat(task_t task)
     static vm_address_t my_hrp = 0;
     static vm_address_t my_humanoid = 0;
     static vm_address_t my_hrp_cframe_address = 0;
-    static vector3_t bonus;
+    static vector3_t vel;
     
     static vm_address_t closest_enemy_head;
     static char closest_enemy_exists = false;
     static const float max_delta_ratio = 0.245;
+    static float fly_speed = 75;
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
         {
-            kern_return_t kr;
-            vm_address_t read_data;
-            kr = vm_read(task, load_address + window_w_offset, 4, &read_data, &data_cnt);
-            if (kr == KERN_SUCCESS)
-            {
-                window_w = *(float*)read_data;
-                vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
-            }
-            
-            kr = vm_read(task, load_address + window_h_offset, 4, &read_data, &data_cnt);
-            if (kr == KERN_SUCCESS)
-            {
-                window_h = *(float*)read_data;
-                vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
-            }
+            window_w = ((int_float_u)(vm_read_4byte_value(task, load_address + window_w_offset))).f;
+            window_h = ((int_float_u)(vm_read_4byte_value(task, load_address + window_h_offset))).f;
             
             bool __cee = false;
             float old_dist = 999;
@@ -114,7 +111,7 @@ void emergency_response_cheat(task_t task)
                             
                             rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, head);
                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                            const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
+                            const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
                             const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
                             const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
                             const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
@@ -142,32 +139,53 @@ void emergency_response_cheat(task_t task)
     {
         for (;;)
         {
-            vector3_t md = rbx_humanoid_get_move_direction(task, my_humanoid);
-            bonus = vector3_div_num(md, 50);
             usleep(1000);
+            
+            is_w_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 'w');
+            is_a_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 'a');
+            is_s_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 's');
+            is_d_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 'd');
+            
+            rbx_cframe_t cf = rbx_camera_get_cframe(task, camera);
+            rbx_basepart_set_gravity(task, my_hrp, 0.0f);
+            vector3_t lv = rbx_cframe_get_look_vector(cf);
+            vector3_t rv = rbx_cframe_get_right_vector(cf);
+            
+            bzero(&vel, sizeof(vector3_t));
+            
+            if (is_w_pressed)
+            {
+                vel = vector3_add(vector3_mul_num(lv, 1), vel);
+            }
+            if (is_a_pressed)
+            {
+                vel = vector3_add(vector3_mul_num(rv, -1), vel);
+            }
+            if (is_s_pressed)
+            {
+                vel = vector3_add(vector3_mul_num(lv, -1), vel);
+            }
+            if (is_d_pressed)
+            {
+                vel = vector3_add(vector3_mul_num(rv, 1), vel);
+            }
+            float magnitude = vector3_magnitude(vel);
+            if (!isnan(magnitude) && magnitude > 0.0f)
+            {
+                vel = vector3_div_num(vel,  magnitude);
+            }
+            vel = vector3_mul_num(vel, fly_speed);
         }
     });
+    
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
         {
-            rbx_cframe_t my_cf = rbx_basepart_get_cframe(task, my_hrp);
-            my_cf.pos = vector3_add(my_cf.pos, bonus);
-            vm_write(task, my_hrp_cframe_address, (vm_offset_t)&my_cf, sizeof(rbx_cframe_t));
-            usleep(20);
+            usleep(100);
+            rbx_basepart_set_velocity(task, my_hrp, vel);
         }
     });
-    
-    /*
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
-    {
-        for (;;)
-        {
-            rbx_print_descendants(task, rbx_player_get_character(task, local_player), 0, 2);
-            sleep(3w);
-        }
-    });*/
-    
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
@@ -225,7 +243,7 @@ void emergency_response_cheat(task_t task)
                 {
                     rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, closest_enemy_head);
                     rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                    const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
+                    const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
                     const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
                     const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
                     const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);

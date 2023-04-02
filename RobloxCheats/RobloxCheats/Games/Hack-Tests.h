@@ -1,7 +1,16 @@
 
 
 
-
+void func(task_t task, vm_address_t instance)
+{
+    if (rbx_instance_is_a(task, instance, "Part") ||
+        rbx_instance_is_a(task, instance, "MeshPart") ||
+        rbx_instance_is_a(task, instance, "WedgePart"))
+    {
+        rbx_basepart_set_cancollide(task, instance, false);
+        //rbx_basepart_set_size(task, instance, (vector3_t){.x = -10, .y = -10, .z = -10});
+    }
+}
 
 void find_object_offsets(task_t task, char* display_name)
 {
@@ -17,27 +26,17 @@ void find_object_offsets(task_t task, char* display_name)
     vm_read(task, data_start, size, (vm_address_t*)&possible_place_ids, &data_cnt);
     free(regions);
     
-    static int ids_found;
-    for (long i = 0 ; i < (size/8) ; i++)
-    {
-        long _id = possible_place_ids[i];
-        if (_id == 5332389196)
-        {
-            ids_found++;
-            if (ids_found == 3) //Third one is stable (For some reason)
-            {
-                //printf("#define %s %p\n", "RBX_PLACE_ID_OFFSET", (void*)(((i * 8) + data_start) - get_base_address(task)));
-            }
-        }
-    }
-    vm_deallocate(mach_task_self_, (vm_address_t)possible_place_ids, size);
-    
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
+    vm_address_t spawnlocation = rbx_instance_find_first_child_of_class(task, workspace, "SpawnLocation");
     vm_address_t noob = rbx_instance_find_first_child(task, workspace, "Noob");
     vm_address_t noob_humanoid = rbx_instance_find_first_child(task, noob, "Humanoid");
+    vm_address_t sitting_noob = rbx_instance_find_first_child(task, workspace, "Sitting Noob");
+    vm_address_t sitting_noob_humanoid = rbx_instance_find_first_child(task, sitting_noob, "Humanoid");
     vm_address_t xaxis = rbx_instance_find_first_child(task, workspace, "XAxis");
     vm_address_t zaxis = rbx_instance_find_first_child(task, workspace, "ZAxis");
+    vm_address_t meshpart1 = rbx_instance_find_first_child(task, workspace, "MeshPart1");
+    vm_address_t meshpart2 = rbx_instance_find_first_child(task, workspace, "MeshPart2");
     vm_address_t values_folder = rbx_instance_find_first_child(task, workspace, "Values");
     vm_address_t other_values_folder = rbx_instance_find_first_child(task, values_folder, "OtherValues");
     vm_address_t short_string_value = rbx_instance_find_first_child(task, values_folder, "ShortStringValue");
@@ -70,15 +69,23 @@ void find_object_offsets(task_t task, char* display_name)
     vm_address_t head = rbx_instance_find_first_child(task, my_character, "Head");
     vm_address_t humanoid = rbx_instance_find_first_child(task, my_character, "Humanoid");
     
-    
-    rbx_print_descendants(task, players_service, 0, 2);
-    rbx_print_descendants(task, game, 0, 0);
+    /*
+    rbx_print_descendants(task, my_plr, 0, 3);
+    rbx_print_descendants(task, workspace, 0, 1);
+    rbx_print_descendants(task, game, 0, 0);*/
     //rbx_print_descendants(task, workspace, 0, 2);*/
     //printf("%s\n", rbx_player_get_display_name(task, my_plr, malloc(1)));
     
     printf("localplr: %p\n", my_plr);
     printf("handle: %p\n", handle);
+    printf("tool: %p\n", tool);
+    printf("xaxis: %p\n", xaxis);
+    /*
+     0x11045D22C    ldr w22, [x7, #0x330]       F6 30 43 B9
+     0x11045D230    cmp w22, #5                 DF 16 00 71
+     */
     printf("hrp: %p\n", hrp);
+    printf("hum: %p\n", humanoid);
     printf("nmdx: %p\n", noobmovedirectionx_value);
     
     rbx_print_descendants(task, workspace, 0, 2);
@@ -87,7 +94,6 @@ void find_object_offsets(task_t task, char* display_name)
     
     size = 0x400;
     kr = vm_read(task, xaxis, size, &read_data, &data_cnt);
-    char part_prop_grav_offset_found = false;
     long part_prop_offset = 0;
     long part_cframe_offset = 0;
     long part_gravity_offset = 0;
@@ -98,35 +104,33 @@ void find_object_offsets(task_t task, char* display_name)
         kr = vm_read(task, a, size, &_rd, &data_cnt);
         if (kr == KERN_SUCCESS && a != xaxis)
         {
-            if (part_prop_grav_offset_found == false)
+            for (long x = 0 ; x < size/4 ; x++)
             {
-                for (long x = 0 ; x < size/4 ; x++)
+                float b = ((float*)_rd)[x];
+                float c = ((float*)_rd)[x + 1];
+                float d = ((float*)_rd)[x + 2];
+                //-269 for ZAxis
+                if (truncf(b) == -250 && truncf(c) == 30 && truncf(d) == 733) //x,y,z coordinates of the XAxis part
                 {
-                    float b = ((float*)_rd)[x];
-                    float c = ((float*)_rd)[x + 1];
-                    float d = ((float*)_rd)[x + 2];
-                    //-269 for ZAxis
-                    if (truncf(b) == -250 && truncf(c) == 30 && truncf(d) == 733) //x,y,z coordinates of the XAxis part
+                    long propoffset = (i * 8);
+                    long cf_offset = (x * 4) + sizeof(vector3_t) - sizeof(rbx_cframe_t);
+                    long grav_offset = cf_offset - 8;
+                    float grav = *((float*)(_rd + grav_offset));
+                    if (truncf(grav) == 200) //gravity is 200
                     {
-                        long propoffset = (i * 8);
-                        long cf_offset = (x * 4) + sizeof(vector3_t) - sizeof(rbx_cframe_t);
-                        long grav_offset = cf_offset - 8;
-                        float grav = ((float*)_rd)[grav_offset/4];
-                        if (truncf(grav) == 200) //gravity is 200
+                        vm_address_t zaxispropaddr = vm_read_8byte_value(task, zaxis + propoffset);
+                        int_float_u zaxisval_u;
+                        zaxisval_u.i = vm_read_4byte_value(task, zaxispropaddr + grav_offset);
+                        if (truncf(zaxisval_u.f) == 200) //check if the offsets work for another part (ZAxis part)
                         {
-                            vm_address_t zaxispropaddr = vm_read_8byte_value(task, zaxis + propoffset);
-                            int_float_u zaxisval_u;
-                            zaxisval_u.i = vm_read_4byte_value(task, zaxispropaddr + grav_offset);
-                            if (truncf(zaxisval_u.f) == 200) //check if the offsets work for another part (ZAxis part)
-                            {
-                                part_prop_grav_offset_found = true;
-                                part_prop_offset = propoffset;
-                                part_cframe_offset = cf_offset;
-                                part_gravity_offset = grav_offset;
-                                printf("#define %s %p\n", "RBX_PART_PROPERTIES_OFFSET", (void*)propoffset);
-                                printf("#define %s %p\n", "RBX_PART_PROPERTIES_GRAVITY_OFFSET", (void*)grav_offset);
-                                printf("#define %s %p\n", "RBX_PART_PROPERTIES_CFRAME_OFFSET", (void*)cf_offset);
-                            }
+                            part_prop_offset = propoffset;
+                            part_cframe_offset = cf_offset;
+                            part_gravity_offset = grav_offset;
+                            printf("#define %s %p\n", "RBX_PART_PROPERTIES_OFFSET", (void*)propoffset);
+                            printf("#define %s %p\n", "RBX_PART_PROPERTIES_GRAVITY_OFFSET", (void*)grav_offset);
+                            printf("#define %s %p\n", "RBX_PART_PROPERTIES_CFRAME_OFFSET", (void*)cf_offset);
+                            x = size/4;
+                            i = size/8;
                         }
                     }
                 }
@@ -136,42 +140,78 @@ void find_object_offsets(task_t task, char* display_name)
     }
     vm_deallocate(mach_task_self_, read_data, size);
     
+    vm_address_t xaxispropaddr = vm_read_8byte_value(task, xaxis + part_prop_offset);
+    vm_address_t zaxispropaddr = vm_read_8byte_value(task, zaxis + part_prop_offset);
+    
+    size = 0x400;
+    kr = vm_read(task, xaxispropaddr, size, &read_data, &data_cnt);
+    for (long i = 0 ; i < size; i++)
+    {
+        char a = ((char*)read_data)[i];
+        if (a == true && vm_read_1byte_value(task, zaxispropaddr + i) == false)
+        {
+            printf("#define %s %p\n", "RBX_PART_PROPERTIES_CANCOLLIDE_OFFSET", (void*)i);
+            i = size;
+        }
+    }
+    vm_deallocate(mach_task_self_, read_data, data_cnt);
+    
     size = 0x400;
     kr = vm_read(task, xaxis, size, &read_data, &data_cnt);
     for (long i = 0 ; i < (size - sizeof(rbx_rgb_t)) ; i++)
     {
         rbx_rgb_t a = *((rbx_rgb_t*)(read_data + i));
-        //printf("%x, %x, %x @ [%p]\n", a.r, a.g, a.b, i);
         if (memcmp(&a, &xaxis_rgb_color, sizeof(rbx_rgb_t)) == 0)
         {
             int b = vm_read_4byte_value(task, zaxis + i);
             if (memcmp(&b, &zaxis_rgb_color, sizeof(rbx_rgb_t)) == 0)
             {
                 printf("#define %s %p\n", "RBX_PART_RGB_COLOR_OFFSET", (void*)i);
+                i = (size - sizeof(rbx_rgb_t));
             }
         }
     }
     vm_deallocate(mach_task_self_, read_data, data_cnt);
     
     size = 0x400;
-    char part_prop_size_offset_found = false;
-    vm_address_t xaxis_properties_address = vm_read_8byte_value(task, xaxis + part_prop_offset);
-    kr = vm_read(task, xaxis_properties_address, size, &read_data, &data_cnt);
+    kr = vm_read(task, xaxispropaddr, size, &read_data, &data_cnt);
     for (long i = 0 ; i < (size/4) - 8 ; i++)
     {
-        if (part_prop_size_offset_found == false)
+        float a = ((float*)read_data)[i];
+        float b = ((float*)read_data)[i + 1];
+        float c = ((float*)read_data)[i + 2];
+        if (truncf(a) == 8 && truncf(b) == 1 && truncf(c) == 2) //The x,y,z size for the XAxis part
         {
-            float a = ((float*)read_data)[i];
-            float b = ((float*)read_data)[i + 1];
-            float c = ((float*)read_data)[i + 2];
-            if (truncf(a) == 8 && truncf(b) == 1 && truncf(c) == 2) //The x,y,z size for the XAxis part
-            {
-                printf("#define %s %p\n", "RBX_PART_PROPERTIES_SIZE_OFFSET", (void*)(i * 4));
-                part_prop_size_offset_found = true;
-            }
+            printf("#define %s %p\n", "RBX_PART_PROPERTIES_SIZE_OFFSET", (void*)(i * 4));
+            i = (size/4);
         }
     }
     vm_deallocate(mach_task_self_, read_data, data_cnt);
+    
+    
+    size = 0x400;
+    kr = vm_read(task, meshpart1, size, &read_data, &data_cnt);
+    for (long i = 0 ; i < (size - 8) ; i++)
+    {
+        vm_address_t asset_id_str_ptr = vm_read_8byte_value(task, meshpart1 + i);
+        char* asset_id_str = NULL;
+        kr = vm_read(task, asset_id_str_ptr, RBX_MESHPART_ASSET_ID_STRING_LENGTH, (vm_offset_t*)&asset_id_str, &data_cnt);
+        if (kr == KERN_SUCCESS)
+        {
+            if (strcmp(asset_id_str, "rbxassetid://11661592844") == 0)
+            {
+                printf("#define %s %p\n", "RBX_MESHPART_MESHID_OFFSET", (void*)i);
+            }
+            if (strcmp(asset_id_str, "rbxassetid://11661592868") == 0)
+            {
+                printf("#define %s %p\n", "RBX_MESHPART_TEXTUREID_OFFSET", (void*)i);
+            }
+            vm_deallocate(mach_task_self_, (vm_offset_t)asset_id_str, RBX_MESHPART_ASSET_ID_STRING_LENGTH);
+        }
+    }
+    vm_deallocate(mach_task_self_, read_data, data_cnt);
+    
+    
     
     size = 0x300;
     kr = vm_read(task, my_character, size, &read_data, &data_cnt);
@@ -191,7 +231,7 @@ void find_object_offsets(task_t task, char* display_name)
     {
         if (strcmp("Short string", (char*)(read_data + i)) == 0)
         {
-            printf("#define %s %p\n", "RBX_STRING_VALUE_SHORT_VALUE_OFFSET", (void*)(i - 1)); //first actual byte is the number of characters * 2 (i dont know why)
+            printf("#define %s %p\n", "RBX_STRING_VALUE_SHORT_VALUE_OFFSET", (void*)(i - 1));
         }
     }
     vm_deallocate(mach_task_self_, read_data, data_cnt);
@@ -301,6 +341,10 @@ void find_object_offsets(task_t task, char* display_name)
         {
             printf("#define %s %p\n", "RBX_PLAYER_CHARACTER_OFFSET", (void*)i);
         }
+        if (c == spawnlocation)
+        {
+            printf("#define %s %p\n", "RBX_PLAYER_RESPAWNLOCATION_OFFSET", (void*)i);
+        }
     }
     vm_deallocate(mach_task_self_, read_data, data_cnt);
     
@@ -327,6 +371,19 @@ void find_object_offsets(task_t task, char* display_name)
     }
     vm_deallocate(mach_task_self_, read_data, data_cnt);
     
+    size = 0x400;
+    kr = vm_read(task, sitting_noob_humanoid, size, &read_data, &data_cnt);
+    for (long i = 0 ; i < size; i++)
+    {
+        char a = ((char*)read_data)[i];
+        if (a == true && vm_read_1byte_value(task, humanoid + i) == false && vm_read_1byte_value(task, noob_humanoid) == false)
+        {
+            printf("#define %s %p\n", "RBX_HUMANOID_STTING_OFFSET", (void*)i);
+            //i = size;
+        }
+    }
+    vm_deallocate(mach_task_self_, read_data, data_cnt);
+    
     size = 0x1000;
     kr = vm_read(task, text_label, size, &read_data, &data_cnt);
     char textlabel_text_offset_found = false;
@@ -340,52 +397,114 @@ void find_object_offsets(task_t task, char* display_name)
     }
     vm_deallocate(mach_task_self_, read_data, data_cnt);
     
-    /*
+    
+    //long state = 0;
     for (;;)
     {
+        char b = 1;
+        vm_write(task, humanoid + 0x184, &b, 1);
+        rbx_instance_for_each_descendant(task, my_character, func);
         sleep(1);
-        rbx_player_set_last_input_timestamp(task, my_plr, 0.0f);
     }
-    */
 }
 
 
 
 
 
-void func_call_test(task_t task)
-{
 
-    //E0 31 43 B9
+void fly_test(task_t task)
+{
     static mach_msg_type_number_t data_cnt;
-    void* dlhandle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
+    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
     
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB__);
+    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
     
-    vm_offset_t function_usleep_time_offset = gdso(dlhandle, s_load_address, "FUNCTION_USLEEP_TIME");
-    vm_offset_t function_queue_offset = gdso(dlhandle, s_load_address, "FUNCTION_QUEUE");
-    vm_offset_t function_queue_count_offset = gdso(dlhandle, s_load_address, "FUNCTION_QUEUE_COUNT");
-    vm_offset_t function_queue_finished_offset = gdso(dlhandle, s_load_address, "FUNCTION_QUEUE_FINISHED");
+    vm_offset_t keys_down_offset = gdso(dlhandle, s_load_address, "KEYS_DOWN");
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB__);
-    vm_address_t tool_activate = 0;
-    vm_allocate(task, &tool_activate, 4, VM_FLAGS_ANYWHERE);
-    char data[] = {"\xc0\x03\x5f\xd6"};
-    vm_write(task, tool_activate, data, 4);
-    vm_protect(task, tool_activate, 4, FALSE, VM_PROT_READ|VM_PROT_EXECUTE);
+    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
     
-    vm_address_t tool = 0x7fd398741a00;
-    RemoteFunctionCall rf;
-    rf.type = 0;
-    rf.address = tool_activate;
-    //memcpy(rf.arguments, &tool, 8);
-    printf("%p\n", tool_activate);
-    char __f = false;
-    int __c = 1;
-    vm_write(task, load_address + function_queue_offset, &rf, sizeof(rf));
-    vm_write(task, load_address + function_queue_count_offset, (vm_address_t)&__c, sizeof(int));
-    vm_write(task, load_address + function_queue_finished_offset, (vm_address_t)&__f, 1);
+    vm_address_t game = rbx_find_game_address(task);
+    vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
+    vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
+    vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
+    vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
+    
+    static vm_address_t character = 0; rbx_player_get_character(task, local_player);
+    static vm_address_t hrp = 0; rbx_instance_find_first_child(task, character, "HumanoidRootPart");
+    
+    static char is_w_pressed = false;
+    static char is_a_pressed = false;
+    static char is_s_pressed = false;
+    static char is_d_pressed = false;
+    
+    static float speed = 200;
+    
+    static vector3_t vel = {.x = 0, .y = 0, .z = 0};
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            character = rbx_player_get_character(task, local_player);
+            hrp = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
+            rbx_instance_for_each_descendant(task, workspace, func);
+            sleep(1);
+        }
+    });
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            usleep(1000);
+            
+            is_w_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 'w');
+            is_a_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 'a');
+            is_s_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 's');
+            is_d_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 'd');
+            
+            rbx_cframe_t cf = rbx_camera_get_cframe(task, camera);
+            rbx_basepart_set_gravity(task, hrp, 0.0f);
+            vector3_t lv = rbx_cframe_get_look_vector(cf);
+            vector3_t rv = rbx_cframe_get_right_vector(cf);
+            
+            bzero(&vel, sizeof(vector3_t));
+            
+            if (is_w_pressed)
+            {
+                vel = vector3_add(vector3_mul_num(lv, 1), vel);
+            }
+            if (is_a_pressed)
+            {
+                vel = vector3_add(vector3_mul_num(rv, -1), vel);
+            }
+            if (is_s_pressed)
+            {
+                vel = vector3_add(vector3_mul_num(lv, -1), vel);
+            }
+            if (is_d_pressed)
+            {
+                vel = vector3_add(vector3_mul_num(rv, 1), vel);
+            }
+            float magnitude = vector3_magnitude(vel);
+            if (!isnan(magnitude) && magnitude > 0.0f)
+            {
+                vel = vector3_div_num(vel,  magnitude);
+            }
+            vel = vector3_mul_num(vel, speed);
+        }
+    });
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            usleep(100);
+            rbx_basepart_set_velocity(task, hrp, vel);
+        }
+    });
     
 }

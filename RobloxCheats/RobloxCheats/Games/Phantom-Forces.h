@@ -3,13 +3,18 @@
 
 void phantom_forces_cheat(task_t task)
 {
-    printf("- PHANTOM FORCES (AIMBOT & ESP) -\n");
+    printf("- PHANTOM FORCES (AIMBOT + ESP + MELEE) -\n");
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;) { pid_t a[4096]; if (pids_by_name("RobloxPlayer", a) == 0) { exit(0); } sleep(1); }
+    });
 
     static mach_msg_type_number_t data_cnt;
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
+    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
     
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB__);
+    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
     
     vm_offset_t left_mouse_down_offset = gdso(dlhandle, s_load_address, "LEFT_MOUSE_DOWN");
     vm_offset_t esp_enabled_offset = gdso(dlhandle, s_load_address, "ESP_ENABLED");
@@ -25,14 +30,14 @@ void phantom_forces_cheat(task_t task)
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB__);
+    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
     
     static char esp_enabled = true;
     static char aimbot_enabled = true;
     
     static int max_player_count = RBX_PHANTOM_FORCES_MAX_PLAYER_COUNT;
     
-    static const float max_delta_ratio = 0.135;
+    static const float max_delta_ratio = 0.125;
     static const float max_dist = 500;
     
     vm_write(task, load_address + esp_count_offset, (vm_offset_t)&max_player_count, 4);
@@ -56,52 +61,79 @@ void phantom_forces_cheat(task_t task)
     vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
     
     
-    useconds_t esput = 500;
+    useconds_t esput = 1000;
     vm_write(task, load_address + esp_usleep_time_offset, (vm_address_t)&esput, sizeof(useconds_t));
     
     static vm_address_t closest_enemy_torso;
     static char closest_enemy_exists = false;
+    static char is_holding_melee = false;
+    static int cframe_write_mode = 0;
     
     static vm_address_t enemy_torsos[RBX_PHANTOM_FORCES_MAX_PLAYER_COUNT];
+    
     static vm_address_t trigger = 0;
+    static vm_address_t flame = 0;
     static vm_address_t trigger_cframe_address = 0;
+    static vm_address_t flame_cframe_address = 0;
+    
+    static float new_trigger_cframe_r20 = 0.0f;
+    static float new_trigger_cframe_r21 = 0.0f;
+    static float new_trigger_cframe_r22 = 0.0f;
+    static vector3_t new_flame_pos = {.x = 0, .y = 0, .z = 0};
     
     static long enemy_count = 0;
-    
-    static float new_trigger_cframe_r20;
-    static float new_trigger_cframe_r21;
-    static float new_trigger_cframe_r22;
     static useconds_t aimbot_usleep_time = 75;
+    static useconds_t cframe_write_usleep_time = 5;
 
-    static ESP_Color esp_color;
-    esp_color.r = 0;
-    esp_color.g = 1;
-    esp_color.b = 0;
-    esp_color.a = 1;
-    
+    static ESP_Color esp_color = {.r = 0, .g = 1, .b = 0, .a = 1};
     static ESP_Color target_color = {.r = 1, .g = 0, .b = 1, .a = 1};
     
-    rbx_print_descendants(task, workspace, 0, 2);
-    rbx_print_descendants(task, camera, 0, 3);
+    static long camera_child_count = 0;
+    
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
         {
+            window_w = ((int_float_u)(vm_read_4byte_value(task, load_address + window_w_offset))).f;
+            window_h = ((int_float_u)(vm_read_4byte_value(task, load_address + window_h_offset))).f;
+            
             vm_address_t players_folder = rbx_instance_find_first_child(task, workspace, "Players");
             vm_address_t blue_team_folder = rbx_instance_find_first_child(task, players_folder, "Bright blue");
             vm_address_t orange_team_folder = rbx_instance_find_first_child(task, players_folder, "Bright orange");
             vm_address_t my_team = rbx_player_get_team(task, local_player);
             
-            long camera_child_count = 0;
             rbx_child_t* camera_children = rbx_instance_get_children(task, camera, &camera_child_count);
-            if (camera_children)
+            if (camera_children && (camera_child_count > 2))
             {
                 vm_address_t main = camera_children[2].child_address;
+                rbx_print_descendants(task, main, 0, 0);
+                vm_address_t handle = rbx_instance_find_first_child(task, main, "Handle");
+                if (handle)
+                {
+                    flame = rbx_instance_find_first_child(task, main, "Flame");
+                    if (rbx_instance_get_parent(task, flame))
+                    {
+                        flame_cframe_address = rbx_basepart_get_properties_address(task, flame) + RBX_PART_PROPERTIES_CFRAME_OFFSET;
+                    }
+                    else
+                    {
+                        flame_cframe_address = 0;
+                    }
+                    is_holding_melee = true;
+                }
+                else
+                {
+                    is_holding_melee = false;
+                }
                 trigger = rbx_instance_find_first_child(task, main, "Trigger");
-                if (trigger)
+                if (rbx_instance_get_parent(task, trigger))
                 {
                     trigger_cframe_address = rbx_basepart_get_properties_address(task, trigger) + RBX_PART_PROPERTIES_CFRAME_OFFSET;
+                }
+                else
+                {
+                    trigger_cframe_address = 0;
                 }
                 vm_deallocate(mach_task_self_, (vm_address_t)camera_children, camera_child_count * sizeof(rbx_child_t));
             }
@@ -138,19 +170,30 @@ void phantom_forces_cheat(task_t task)
                             
                             rbx_cframe_t torso_cframe = rbx_basepart_get_cframe(task, torso);
                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                            const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
                             const float dist = vector3_dist_dif(torso_cframe.pos, camera_cframe.pos);
-                            const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
-                            const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
-                            const float delta_dist = vector3_dist_dif(f_pos, torso_cframe.pos);
-                            const float delta_ratio = (delta_dist/dist);
                             
-                            if (old_dist > dist && old_delta_ratio > delta_ratio)
+                            if (!is_holding_melee)
                             {
-                                __cee = true;
-                                //old_delta_ratio = delta_ratio;
-                                old_dist = dist;
-                                closest_enemy_torso = torso;
+                                const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
+                                const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                                const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
+                                const float delta_dist = vector3_dist_dif(f_pos, torso_cframe.pos);
+                                const float delta_ratio = (delta_dist/dist);
+                                
+                                if (old_dist > dist && old_delta_ratio > delta_ratio)
+                                {
+                                    __cee = true;
+                                    old_dist = dist;
+                                    closest_enemy_torso = torso;
+                                }
+                            }
+                            else
+                            {
+                                if (dist < 20)
+                                {
+                                    closest_enemy_torso = torso;
+                                    __cee = true;
+                                }
                             }
                         }
                     }
@@ -158,22 +201,6 @@ void phantom_forces_cheat(task_t task)
                 vm_deallocate(mach_task_self_, (vm_address_t)enemies_list, enemy_count * sizeof(rbx_child_t));
             }
             closest_enemy_exists = __cee;
-            
-            kern_return_t kr;
-            vm_address_t read_data;
-            kr = vm_read(task, load_address + window_w_offset, 4, &read_data, &data_cnt);
-            if (kr == KERN_SUCCESS)
-            {
-                window_w = *(float*)read_data;
-                vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
-            }
-            
-            kr = vm_read(task, load_address + window_h_offset, 4, &read_data, &data_cnt);
-            if (kr == KERN_SUCCESS)
-            {
-                window_h = *(float*)read_data;
-                vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
-            }
 
             usleep(300000);
         }
@@ -206,25 +233,19 @@ void phantom_forces_cheat(task_t task)
                                 rbx_cframe_t torso_cframe = rbx_basepart_get_cframe(task, enemy_torso);
                                 rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
                                 float fov = rbx_camera_get_field_of_view(task, camera);
-                                if (esp_index < MAX_ESP_COUNT)
-                                {
-                                    rbx_draw_esp_box(task, torso_cframe.pos,
-                                                     camera_cframe, esp_box_hidden_array,
-                                                     esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width,
-                                                     color, fov, 3, 3, 0, 0, window_w, window_h, esp_index, true);
-                                    esp_index++;
-                                }
+                                rbx_draw_esp_box(task, torso_cframe.pos,
+                                                 camera_cframe, esp_box_hidden_array,
+                                                 esp_box_frame_array, esp_box_color_array, esp_box_border_width_array, border_width,
+                                                 color, fov, 3, 3, 0, 0, window_w, window_h, esp_index, true);
+                                esp_index++;
                             }
                         }
                         usleep(esput/enemy_count);
                         
                     }
-                    if (esp_index < MAX_ESP_COUNT)
-                    {
-                        char hiddens[MAX_ESP_COUNT - esp_index];
-                        memset(hiddens, 1, sizeof(hiddens));
-                        vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)hiddens, (int)sizeof(hiddens));
-                    }
+                    char hiddens[MAX_ESP_COUNT - esp_index];
+                    memset(hiddens, 1, sizeof(hiddens));
+                    vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)hiddens, (int)sizeof(hiddens));
                 }
                 else
                 {
@@ -234,19 +255,13 @@ void phantom_forces_cheat(task_t task)
         });
     }
     
-    /*
-     0x10EB36D18    str q1, [x2]    41 00 80 3D
-     0x10EB36D1C    str q5, [x2, #0x10]    45 04 80 3D
-     0x10EB36D20    str q7, [x2, #0x20]    47 08 80 3D
-     */
-    
 
         
        
     if (aimbot_enabled)
     {
         
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
         {
             for (;;)
             {
@@ -257,35 +272,63 @@ void phantom_forces_cheat(task_t task)
                 {
                     char lmd = *(char*)read_data;
                     vm_deallocate(mach_task_self_, read_data, 1);
-                    if (closest_enemy_exists == true && closest_enemy_torso)
+                    if (closest_enemy_exists == true && closest_enemy_torso && camera_child_count > 2)
                     {
                         aimbot_usleep_time = 50;
                         if (lmd == true)
                         {
-                            aimbot_usleep_time = 0;
+                            cframe_write_usleep_time = 0;
+                            aimbot_usleep_time = 10;
                             rbx_cframe_t torso_cframe = rbx_basepart_get_cframe(task, closest_enemy_torso);
-                            torso_cframe.pos.y -= 0.25;
-                            rbx_cframe_t trigger_cframe = rbx_basepart_get_cframe(task, trigger);
+                            if (!is_holding_melee)
+                            {
+                                rbx_cframe_t trigger_cframe = rbx_basepart_get_cframe(task, trigger);
+                                torso_cframe.pos.y -= 0.20;
+                                vector3_t torso_velocity = rbx_basepart_get_velocity(task, closest_enemy_torso);
+                                torso_cframe.pos = vector3_add(torso_cframe.pos, torso_velocity);
+                                vector3_t new_look_vector = vector3_unit(torso_cframe.pos, trigger_cframe.pos);
+                                
+                                new_trigger_cframe_r20 = -new_look_vector.x;
+                                new_trigger_cframe_r21 = -new_look_vector.y;
+                                new_trigger_cframe_r22 = -new_look_vector.z;
+                                cframe_write_mode = 1;
+                            }
+                            else
+                            {
+                                new_flame_pos = torso_cframe.pos;
+                                cframe_write_mode = 2;
+                            }
                             
-                            vector3_t new_look_vector = vector3_unit(torso_cframe.pos, trigger_cframe.pos);
-                            
-                            new_trigger_cframe_r20 = -new_look_vector.x;
-                            new_trigger_cframe_r21 = -new_look_vector.y;
-                            new_trigger_cframe_r22 = -new_look_vector.z;
-                            
-                            vm_write(task, trigger_cframe_address + 0x8, (vm_offset_t)&new_trigger_cframe_r20, 4);
-                            vm_write(task, trigger_cframe_address + 0x14, (vm_offset_t)&new_trigger_cframe_r21, 4);
-                            vm_write(task, trigger_cframe_address + 0x20, (vm_offset_t)&new_trigger_cframe_r22, 4);
                         }
                     }
                     else
                     {
+                        cframe_write_usleep_time = 100;
+                        cframe_write_mode = 0;
                         aimbot_usleep_time = 4000;
                     }
                 }
                 usleep(aimbot_usleep_time);
             }
         });
-    }
         
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^
+        {
+            for (;;)
+            {
+                if (cframe_write_mode == 1)
+                {
+                    vm_write(task, trigger_cframe_address + 0x8, (vm_offset_t)&new_trigger_cframe_r20, 4);
+                    vm_write(task, trigger_cframe_address + 0x14, (vm_offset_t)&new_trigger_cframe_r21, 4);
+                    vm_write(task, trigger_cframe_address + 0x20, (vm_offset_t)&new_trigger_cframe_r22, 4);
+                }
+                if (cframe_write_mode == 2)
+                {
+                    vm_write(task, flame_cframe_address + 0x24, (vm_offset_t)&new_flame_pos, sizeof(vector3_t));
+                }
+                usleep(cframe_write_usleep_time);
+            }
+        });
+    }
+    
 }

@@ -43,13 +43,11 @@ rbx_instance_t;
 
 vm_address_t rbx_instance_get_parent(task_t task, vm_address_t instance)
 {
-    if (instance == 0) { return 0; }
     return vm_read_8byte_value(task, instance + 0x58);
 }
 
 char* rbx_instance_get_name(task_t task, vm_address_t instance, char* inout_len)
 {
-    if (instance == 0) { return NULL; }
     mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
     kern_return_t kr;
@@ -80,7 +78,6 @@ char* rbx_instance_get_name(task_t task, vm_address_t instance, char* inout_len)
 
 char* rbx_instance_get_class_name(task_t task, vm_address_t instance, char* inout_len)
 {
-    if (instance == 0) { return NULL; }
     mach_msg_type_number_t data_cnt;
     kern_return_t kr;
     vm_address_t read_data;
@@ -116,10 +113,25 @@ char* rbx_instance_get_class_name(task_t task, vm_address_t instance, char* inou
     return class_name;
 }
 
+char rbx_instance_is_a(task_t task, vm_address_t instance, char* classname)
+{
+    char isa = false;
+    char cnl = 0;
+    char* cn = NULL;
+    cn = rbx_instance_get_class_name(task, instance, &cnl);
+    if (cn)
+    {
+        if (strcmp(cn, classname) == 0)
+        {
+            isa = true;
+        }
+        vm_deallocate(mach_task_self_, (vm_address_t)cn, cnl);
+    }
+    return isa;
+}
 
 rbx_child_t* rbx_instance_get_children(task_t task, vm_address_t instance, long* inout_child_count)
 {
-    if (instance == 0) { return NULL; }
     mach_msg_type_number_t data_cnt;
     
     kern_return_t kr;
@@ -159,7 +171,6 @@ vm_address_t rbx_instance_find_first_child_of_class(task_t task,
                                                     vm_address_t instance,
                                                     char* class_name)
 {
-    if (instance == 0) { return 0; }
     long child_count = 0;
     vm_address_t found_child = 0;
     rbx_child_t* children = rbx_instance_get_children(task, instance, &child_count);
@@ -190,7 +201,6 @@ vm_address_t rbx_instance_find_first_child(task_t task,
                                            vm_address_t instance,
                                            char* name)
 {
-    if (instance == 0) { return 0; }
     long child_count = 0;
     vm_address_t found_child = 0;
     rbx_child_t* children = rbx_instance_get_children(task, instance, &child_count);
@@ -216,12 +226,10 @@ vm_address_t rbx_instance_find_first_child(task_t task,
     return found_child;
 }
 
-vm_address_t rbx_instance_find_first_child_of_class_and_name(task_t task,
-                                                             vm_address_t instance,
-                                                             char* class_name,
-                                                             char* name)
+vm_address_t rbx_instance_find_first_child_using_substring(task_t task,
+                                                           vm_address_t instance,
+                                                           char* subtring)
 {
-    if (instance == 0) { return 0; }
     long child_count = 0;
     vm_address_t found_child = 0;
     rbx_child_t* children = rbx_instance_get_children(task, instance, &child_count);
@@ -234,19 +242,10 @@ vm_address_t rbx_instance_find_first_child_of_class_and_name(task_t task,
             char* _name = rbx_instance_get_name(task, child, &_name_len);
             if (_name != NULL)
             {
-                if (strcmp(_name, name) == 0)
+                if (strstr(_name, subtring))
                 {
-                    char _cname_len;
-                    char* _cname = rbx_instance_get_class_name(task, child, &_cname_len);
-                    if (_cname)
-                    {
-                        if (strcmp(_cname, class_name) == 0)
-                        {
-                            found_child = child;
-                            i = child_count;
-                        }
-                        vm_deallocate(mach_task_self_, (vm_address_t)_cname, _cname_len);
-                    }
+                    found_child = child;
+                    i = child_count;  //break the loop, without skipping the deallocating part.
                 }
                 vm_deallocate(mach_task_self_, (vm_address_t)_name, _name_len);
             }
@@ -268,39 +267,40 @@ vm_address_t rbx_find_game_address(task_t task)
     vm_address_t* possible_games;
     free(regions);
     vm_size_t size = (data_end - data_start);
-    vm_read(task, data_start, size, (vm_address_t*)&possible_games, &data_cnt);
-    for (long i = 0 ; i < (size/8) ; i++)
+    if (vm_read(task, data_start, size, (vm_address_t*)&possible_games, &data_cnt) == KERN_SUCCESS)
     {
-        vm_address_t pg = possible_games[i];
-        if (pg > base * 3)
+        for (long i = 0 ; i < (size/8) ; i++)
         {
-            kern_return_t kr;
-            char* check;
-            kr = vm_read(task, pg, 1, (vm_address_t*)&check, &data_cnt);
-            vm_deallocate(mach_task_self_, (vm_address_t)check, 1);
-            if (kr == KERN_SUCCESS)
+            vm_address_t pg = possible_games[i];
+            if (pg > base)
             {
-                char cname_len;
-                char name_len;
-                char* cname = rbx_instance_get_class_name(task, pg, &cname_len);
-                char* name = rbx_instance_get_name(task, pg, &name_len);
-                if (cname && name)
+                if (pg % 0x100 == 0x18)
                 {
-                    if (strcmp("DataModel", cname) == 0)
+                    if (vm_read_8byte_value(task, pg + 8) == pg)
                     {
-                        if (strcmp("Game", name) == 0)
+                        char cname_len;
+                        char name_len;
+                        char* cname = rbx_instance_get_class_name(task, pg, &cname_len);
+                        char* name = rbx_instance_get_name(task, pg, &name_len);
+                        if (cname && name)
                         {
-                            game = pg;
-                            i = (size/8); //break loop without skipping the deallocation.
+                            if (strcmp("DataModel", cname) == 0)
+                            {
+                                if (strcmp("Game", name) == 0)
+                                {
+                                    game = pg;
+                                    i = (size/8); //break loop without skipping the deallocation.
+                                }
+                            }
                         }
+                        vm_deallocate(mach_task_self_, (vm_address_t)cname, cname_len);
+                        vm_deallocate(mach_task_self_, (vm_address_t)name, name_len);
                     }
                 }
-                vm_deallocate(mach_task_self_, (vm_address_t)cname, cname_len);
-                vm_deallocate(mach_task_self_, (vm_address_t)name, name_len);
             }
         }
+        vm_deallocate(mach_task_self_, (vm_address_t)possible_games, size);
     }
-    vm_deallocate(mach_task_self_, (vm_address_t)possible_games, size);
     return game;
 }
 
@@ -362,3 +362,19 @@ void rbx_print_descendants(task_t task, vm_address_t instance, int current_recur
     vm_deallocate(mach_task_self_, (vm_address_t)_class_name, _cname_len);
 }
 
+
+void rbx_instance_for_each_descendant(task_t task, vm_address_t instance, void func(task_t, vm_address_t))
+{
+    func(task, instance);
+    long cc;
+    rbx_child_t* children = rbx_instance_get_children(task, instance, &cc);
+    if (children)
+    {
+        for (long i = 0 ; i < cc ; i++)
+        {
+            vm_address_t child = children[i].child_address;
+            rbx_instance_for_each_descendant(task, child, func);
+        }
+        vm_deallocate(mach_task_self_, (vm_address_t)children, cc * sizeof(rbx_child_t));
+    }
+}

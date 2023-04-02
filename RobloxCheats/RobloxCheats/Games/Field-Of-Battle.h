@@ -1,7 +1,7 @@
 
 
 #define RBX_FOB_ALL_LEGENDARY_FILTER if (gv > 31)
-#define RBX_FOB_BAD_LEGENDARY_FILTER if (gv == 35 || gv == 36) //Spirit and Dragon Bone go brrrrrr..
+#define RBX_FOB_BAD_LEGENDARY_FILTER if (gv == 35 || gv == 36) //Spirit Shard and Dragon Bone go brrrrrr..
 #define RBX_FOB_GOOD_LEGENDARY_FILTER if (gv > 31 && gv != 35 && gv != 36)
 
 
@@ -18,12 +18,11 @@ void field_of_battle_collect_legendary_gem(task_t task)
     vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
     vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
     
-    static char should_exit = false;
     static char gem_found = false;
     static vm_address_t gem = 0;
-    static vector3_t gem_pos;
-    gem_pos = vector3_init(-2050, 758, -1940); //Middle of lobby, up where the gems fall.
+    static vector3_t gem_pos = {.x = -2050, .y = 758, .z = -1940}; //Middle of lobby, up where the gems fall.
     
+    //Gem name given its GemType number.
     static char* gem_dictionary[100];
     gem_dictionary[1] = "Red Diamond";
     gem_dictionary[2] = "Grandidierite";
@@ -68,6 +67,7 @@ void field_of_battle_collect_legendary_gem(task_t task)
         {
             if (gem_found == true)
             {
+                //Gem disappears when we collect
                 vm_address_t gem_parent = rbx_instance_get_parent(task, gem);
                 if (gem_parent)
                 {
@@ -76,8 +76,7 @@ void field_of_battle_collect_legendary_gem(task_t task)
                 }
                 else
                 {
-                    gem_pos.y = -999999.0f;
-                    should_exit = true;
+                    gem_pos.y = -999999.0f;  //Teleport to a place where nobody will see us, after the gem is collected
                 }
             }
             usleep(10);
@@ -95,7 +94,7 @@ void field_of_battle_collect_legendary_gem(task_t task)
             rbx_basepart_set_gravity(task, hrp, 0);
             rbx_cframe_t cf = rbx_basepart_get_cframe(task, hrp);
             cf.pos = gem_pos;
-            rbx_basepart_set_cframe(task, hrp, &cf);
+            rbx_basepart_set_cframe(task, hrp, cf);
             
             long projectile_count = 0;
             rbx_child_t* projectiles = rbx_instance_get_children(task, projectiles_folder, &projectile_count);
@@ -105,14 +104,6 @@ void field_of_battle_collect_legendary_gem(task_t task)
                 if (gem_found == false)
                 {
                     printf(" > SCANNING GEMS...\n");
-                }
-                else
-                {
-                    if (should_exit == true)
-                    {
-                        printf(" > GEM COLLECTED SUCCESSFULLY!\n > EXITING...\n");
-                        exit(0);
-                    }
                 }
                 
                 for (long i = 0 ; i < projectile_count ; i++)
@@ -207,9 +198,9 @@ void fob_click(task_t task,
 void field_of_battle_auto_farm(task_t task)
 {
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB__, RTLD_NOW);
+    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
     
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB__);
+    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
     
     vm_offset_t input_usleep_time_offset = gdso(dlhandle, s_load_address, "INPUT_USLEEP_TIME");
     vm_offset_t input_queue_offset = gdso(dlhandle, s_load_address, "INPUT_QUEUE");
@@ -218,7 +209,7 @@ void field_of_battle_auto_farm(task_t task)
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB__);
+    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
     int iut = 100000;
     vm_write(task, load_address + input_usleep_time_offset, (vm_address_t)&iut, sizeof(useconds_t));
     
@@ -229,7 +220,6 @@ void field_of_battle_auto_farm(task_t task)
     vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
     vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
     vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
-    vm_address_t backpack = rbx_instance_find_first_child(task, local_player, "Backpack");
     vm_address_t unbreakable_folder = rbx_instance_find_first_child(task, workspace, "Unbreakable");
     vm_address_t characters_folder = rbx_instance_find_first_child(task, unbreakable_folder, "Characters");
     vm_address_t orc_char_folder = rbx_instance_find_first_child(task, characters_folder, "Orc");
@@ -352,7 +342,7 @@ void field_of_battle_auto_farm(task_t task)
                 my_hrp_cf.pos.x = _npc_cf.pos.x;
                 my_hrp_cf.pos.y = _npc_cf.pos.y + y_offset;
                 my_hrp_cf.pos.z = _npc_cf.pos.z;
-                rbx_basepart_set_cframe(task, my_hrp, &my_hrp_cf);
+                rbx_basepart_set_cframe(task, my_hrp, my_hrp_cf);
                 npc_cf = _npc_cf;
                 npc_pos = _npc_cf.pos;
             }
@@ -371,7 +361,7 @@ void field_of_battle_auto_farm(task_t task)
         for (;;)
         {
             
-            rbx_player_set_last_input_timestamp(task, local_player, 0.0f); //So we don't get kicked for being 'AFK'
+            rbx_player_set_last_input_timestamp(task, local_player, 999999999.0f); //So we don't get kicked for being 'AFK'
             rbx_basepart_set_gravity(task, my_hrp, 0);
             
             rbx_child_t* plrs = rbx_instance_get_children(task, players_service, &server_player_count);
@@ -381,16 +371,21 @@ void field_of_battle_auto_farm(task_t task)
             {
                 if (is_going_afk == false)
                 {
-                    is_going_afk = true;
                     rbx_basepart_set_gravity(task, my_hrp, 200);
                     rbx_cframe_t cf = npc_cf;
                     cf.pos.y -= 999999.0f;
-                    rbx_basepart_set_cframe(task, my_hrp, &cf);
+                    rbx_basepart_set_cframe(task, my_hrp, cf);
                     printf("MULTIPLE PLAYERS DETECTED!!!\n > GOING AFK...\n");
+                    NSLog(@"Current status: AFK");
                 }
+                is_going_afk = true;
             }
             else
             {
+                if (is_going_afk == true)
+                {
+                    NSLog(@"Current status: Active");
+                }
                 is_going_afk = false;
                 if (char_tool == 0)
                 {
@@ -413,6 +408,25 @@ void field_of_battle_auto_farm(task_t task)
             usleep(target_switch_delay_usleep_time);
         }
     });
+    
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            pid_t pa[4096];
+            if (pids_by_name("cputhrottle_remake", pa) == 0)
+            {
+                char cmd[1000];
+                int p = -1;
+                pid_for_task(task, &p);
+                sprintf(cmd, "%s %d %f", __CPUTHROTTLE_PATH__, p, 50.0f);
+                system(cmd);
+            }
+            sleep(3);
+        }
+    });
+    
 }
 
 
@@ -434,7 +448,7 @@ void fob_troll(task_t task)
     vm_address_t gen = rbx_instance_find_first_child(task, orc_char_folder, "Orc General");
     vm_address_t genhead = rbx_instance_find_first_child(task, gen, "Head");
     rbx_cframe_t gencf = rbx_basepart_get_cframe(task, genhead);
-    rbx_basepart_set_cframe(task, ogcharhrp, &gencf);
+    rbx_basepart_set_cframe(task, ogcharhrp, gencf);
     rbx_camera_set_camera_subject(task, camera, gen);
     rbx_player_set_character(task, local_player, gen);
 }

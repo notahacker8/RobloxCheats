@@ -1,7 +1,7 @@
 
 
 
-
+/*
 rbx_cframe_t rbx_tool_get_grip(task_t task, vm_address_t tool)
 {
     static mach_msg_type_number_t data_cnt;
@@ -27,3 +27,5 @@ void rbx_tool_set_grip(task_t task, vm_address_t tool, rbx_cframe_t cf)
     vm_write(task, tool + 0x338, (vm_address_t)&cf, sizeof(rbx_cframe_t));
     return;
 }
+*/
+

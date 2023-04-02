@@ -3,6 +3,7 @@
 #define __RBX_TOTAL_Y_GUI_INSET 76
 #define __RBX_TOTAL_X_GUI_INSET 0
 
+//Not an in-game struct, but something the World-to-Screen function will return.
 typedef struct
 {
     float x;
@@ -21,35 +22,26 @@ vm_address_t rbx_camera_get_camera_subject(task_t task, vm_address_t camera)
 
 void rbx_camera_set_camera_subject(task_t task, vm_address_t camera, vm_address_t new_subject)
 {
-    if (camera == 0) { return; }
     vm_write(task, camera + RBX_CAMERA_CAMERA_SUBJECT_OFFSET, (vm_offset_t)&new_subject, 8);
 }
 
 rbx_cframe_t rbx_camera_get_cframe(task_t task, vm_address_t camera)
 {
-    static mach_msg_type_number_t data_cnt;
-    rbx_cframe_t cframe;
-    bzero(&cframe, sizeof(cframe));
-    
-    kern_return_t kr;
-    vm_address_t read_data;
-    
-    if (camera == 0) {return cframe;}
-    kr = vm_read(task, camera + RBX_CAMERA_CFRAME_0_OFFSET, sizeof(rbx_cframe_t), (vm_offset_t*)&read_data, &data_cnt);
-    if (kr == KERN_SUCCESS)
-    {
-        cframe = *(rbx_cframe_t*)read_data;
-        vm_deallocate(mach_task_self_, (vm_address_t)read_data, sizeof(rbx_cframe_t));
-    }
-    return cframe;
+    return vm_read_rbx_cframe_value(task, camera + RBX_CAMERA_CFRAME_0_OFFSET);
 }
 
 void rbx_camera_set_cframe(task_t task, vm_address_t camera, rbx_cframe_t* cf)
 {
-    if (camera == 0) {return;}
+    //Camera focus is right after the CFrame.
     vm_write(task, camera + RBX_CAMERA_CFRAME_0_OFFSET, (vm_address_t)cf, sizeof(rbx_cframe_t));
     return;
 }
+
+rbx_cframe_t rbx_camera_get_focus(task_t task, vm_address_t camera)
+{
+    return vm_read_rbx_cframe_value(task, camera + RBX_CAMERA_CFRAME_0_OFFSET + sizeof(rbx_cframe_t));
+}
+
 
 float rbx_camera_get_field_of_view(task_t task, vm_address_t camera)
 {
@@ -58,7 +50,6 @@ float rbx_camera_get_field_of_view(task_t task, vm_address_t camera)
 
 void rbx_camera_set_field_of_view(task_t task, vm_address_t camera, float new_value)
 {
-    if (camera == 0) {return;}
     new_value = new_value / (180/PI);
     vm_write(task, camera + RBX_CAMERA_FOV_OFFSET, (vm_address_t)&new_value, 4);
 }
@@ -79,7 +70,7 @@ float rbx_get_camera_relative_depth(const rbx_cframe_t camera_cframe,
                                     float* inout_magnitude)
 {
     const vector3_t camera_pos = camera_cframe.pos;
-    const vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
+    const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
 
     float side_a = vector3_dist_dif(camera_pos, position);
     *inout_magnitude = side_a;
@@ -128,9 +119,9 @@ custom_rbx_world_to_screen_info_t rbx_world_to_screen_point(rbx_cframe_t camera_
                                                             float size_height)
 {
     vector3_t camera_pos = camera_cframe.pos;
-    vector3_t camera_look_vector = rbx_get_cframe_look_vector(camera_cframe);
-    vector3_t camera_up_vector = rbx_get_cframe_up_vector(camera_cframe);
-    vector3_t camera_right_vector = rbx_get_cframe_right_vector(camera_cframe);
+    vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
+    vector3_t camera_up_vector = rbx_cframe_get_up_vector(camera_cframe);
+    vector3_t camera_right_vector = rbx_cframe_get_right_vector(camera_cframe);
     float magnitude;
     custom_rbx_world_to_screen_info_t wtsi;
     

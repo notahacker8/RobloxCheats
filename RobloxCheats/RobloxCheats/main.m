@@ -52,12 +52,16 @@ long_double_u;
 #include <pthread/sched.h>
 
 
-#define __INJECTED_DYLIB__ "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/ESP-drqlefpymzgresdhcnxyusawdjhf/Build/Products/Debug/libESP.dylib"
+#define __INJECTED_DYLIB_PATH__ "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/ESP-drqlefpymzgresdhcnxyusawdjhf/Build/Products/Debug/libESP.dylib"
+#define __CPUTHROTTLE_PATH__ "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/cputhrottle_remake-dlbdozizqeucwzedjzkryqbozbek/Build/Products/Debug/cputhrottle_remake"
+#define __COOKIE_TXT_PATH__ "/Users/dimitriarmendariz/Documents/roblox-cookie.txt"
+
+
 
 #define PI 3.1415926535
 
-#define ARM_THREAD_STATE64 6
-#define ARM64_NOP 0xD503201F
+
+
 
 
 ///Check if a module is loaded into the memory of a process.
@@ -188,22 +192,9 @@ void wait_until_input_queue_finished(task_t task, vm_address_t address, int usle
     }
 }
 
-void is_input_queue_finished(task_t task, vm_address_t address, char* inout_bool)
-{
-    mach_msg_type_number_t data_cnt;
-    vm_address_t read_data;
-    kern_return_t kr = vm_read(task, address, 1, &read_data, &data_cnt);
-    if (kr == KERN_SUCCESS)
-    {
-        char f = *(char*)read_data;
-        *inout_bool = f;
-        vm_deallocate(mach_task_self_, read_data, 1);
-    }
-}
 
 long vm_read_8byte_value(task_t task, vm_address_t address)
 {
-    if (address == 0) { return 0; }
     mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
     long __data = 0;
@@ -219,12 +210,11 @@ long vm_read_8byte_value(task_t task, vm_address_t address)
 
 int vm_read_4byte_value(task_t task, vm_address_t address)
 {
-    if (address == 0) { return 0; }
     mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
     int __data = 0;
     kern_return_t kr;
-    kr = vm_read(task, address, 4, (vm_offset_t*)&read_data, &data_cnt);
+    kr = vm_read(task, address, sizeof(int), (vm_offset_t*)&read_data, &data_cnt);
     if (kr == KERN_SUCCESS)
     {
         __data = *(int*)read_data;
@@ -235,7 +225,6 @@ int vm_read_4byte_value(task_t task, vm_address_t address)
 
 char vm_read_1byte_value(task_t task, vm_address_t address)
 {
-    if (address == 0) { return 0; }
     mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
     char __data = 0;
@@ -258,6 +247,39 @@ char vm_read_1byte_value(task_t task, vm_address_t address)
 #include "Objects/vector3.h"
 #include "Objects/cframe.h"
 
+vector3_t vm_read_vector3_value(task_t task, vm_address_t address)
+{
+    mach_msg_type_number_t data_cnt;
+    vm_address_t read_data;
+    vector3_t __data;
+    bzero(&__data, sizeof(vector3_t));
+    kern_return_t kr;
+    kr = vm_read(task, address, sizeof(vector3_t), (vm_offset_t*)&read_data, &data_cnt);
+    if (kr == KERN_SUCCESS)
+    {
+        __data = *(vector3_t*)read_data;
+        vm_deallocate(mach_task_self_, (vm_address_t)read_data, sizeof(vector3_t));
+    }
+    return __data;
+}
+
+rbx_cframe_t vm_read_rbx_cframe_value(task_t task, vm_address_t address)
+{
+    mach_msg_type_number_t data_cnt;
+    vm_address_t read_data;
+    rbx_cframe_t __data;
+    bzero(&__data, sizeof(rbx_cframe_t));
+    kern_return_t kr;
+    kr = vm_read(task, address, sizeof(rbx_cframe_t), (vm_offset_t*)&read_data, &data_cnt);
+    if (kr == KERN_SUCCESS)
+    {
+        __data = *(rbx_cframe_t*)read_data;
+        vm_deallocate(mach_task_self_, (vm_address_t)read_data, sizeof(rbx_cframe_t));
+    }
+    return __data;
+}
+
+
 #include "Objects/instance.h"
 #include "Objects/basepart.h"
 #include "Objects/camera.h"
@@ -266,6 +288,7 @@ char vm_read_1byte_value(task_t task, vm_address_t address)
 #include "Objects/tool.h"
 #include "Objects/humanoid.h"
 #include "Objects/team.h"
+#include "Objects/meshpart.h"
 
 
 
@@ -347,6 +370,79 @@ ESP_Frame rbx_draw_esp_box(task_t task,
 }
 
 
+void rbx_launch_game(long place_id, char* cookie_file_path)
+{
+    static int buffer_size = 99999;
+    char cmd[buffer_size];
+    char* auth_ticket_cmd = "echo $(curl -i 'https://auth.roblox.com/v1/authentication-ticket/' -X 'POST' -H 'authority: auth.roblox.com' -H 'accept: */*' -H 'accept-language: en-US,en;q=0.8' -H 'content-length: 0' -H 'content-type: application/json' -H 'cookie: %s' -H 'origin: https://www.roblox.com' -H 'referer: https://www.roblox.com/' -H 'sec-ch-ua: \"Brave\";v=\"111\", \"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"111\"' -H 'sec-ch-ua-mobile: ?0' -H 'sec-ch-ua-platform: \"macOS\"' -H 'sec-fetch-dest: empty' -H 'sec-fetch-mode: cors' -H 'sec-fetch-site: same-site' -H 'sec-gpc: 1' -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36' -H 'x-csrf-token: %s')";
+    char* place_launch_cmd = "DYLD_INSERT_LIBRARIES=%s /Applications/Roblox.app/Contents/MacOS/RobloxPlayer -ticket %s -launchtime 1679869627256 -scriptURL \"https://assetgame.roblox.com/game/PlaceLauncher.ashx?request=RequestGame&browserTrackerId=142472346421&placeId=%ld&isPlayTogetherGame=false&joinAttemptId=0f907d75-ec16-4d3b-8d80-3f02d0cafc4b&joinAttemptOrigin=PlayButton\" -browserTrackerId 142472346421 -rloc en_us -gloc en_us -launchExp InApp";
+    
+    char cookie[buffer_size];
+    struct stat file_stat;
+    stat(cookie_file_path, &file_stat);
+    FILE* fp = fopen(cookie_file_path, "r");
+    fgets(cookie, (int)file_stat.st_size, fp);
+    fclose(fp);
+    
+    sprintf(cmd, auth_ticket_cmd, cookie, "");
+    
+    printf("%s\n", cmd);
+    
+    char* csrf_token = NULL;
+    char* auth_ticket = NULL;
+    
+    FILE* pipe = NULL;
+    char response[buffer_size];
+    
+    char* csrf_token_start = NULL;
+    while (!csrf_token_start)
+    {
+        pipe = popen(cmd, "r");
+        fgets(response, buffer_size, pipe);
+        pclose(pipe);
+        csrf_token_start = strstr(response, "x-csrf-token: ");
+    }
+    
+    if (csrf_token_start)
+    {
+        csrf_token_start += strlen("x-csrf-token: ");
+        char* csrf_token_end = strchr(csrf_token_start, 0xd);
+        long csrf_token_length = (csrf_token_end - csrf_token_start);
+        csrf_token = malloc(csrf_token_length);
+        memcpy(csrf_token, csrf_token_start, csrf_token_length);
+        
+        printf("CSRF-TOKEN: [%s]\n", csrf_token);
+        bzero(cmd, sizeof(cmd));
+        bzero(response, sizeof(response));
+        sprintf(cmd, auth_ticket_cmd, cookie, csrf_token);
+        
+        char* auth_ticket_start = NULL;
+        
+        while (!auth_ticket_start)
+        {
+            pipe = popen(cmd, "r");
+            fgets(response, buffer_size, pipe);
+            pclose(pipe);
+            auth_ticket_start = strstr(response, "rbx-authentication-ticket: ");
+        }
+        if (auth_ticket_start)
+        {
+            auth_ticket_start += strlen("rbx-authentication-ticket: ");
+            char* auth_ticket_end = strchr(auth_ticket_start, 0xd);
+            long auth_ticket_length = (auth_ticket_end - auth_ticket_start);
+            auth_ticket = malloc(auth_ticket_length);
+            memcpy(auth_ticket, auth_ticket_start, auth_ticket_length);
+            printf("RBX-AUTH-TICKET: [%s]\n", auth_ticket);
+            bzero(cmd, sizeof(cmd));
+            sprintf(cmd, place_launch_cmd, __INJECTED_DYLIB_PATH__, auth_ticket, place_id);
+            free(csrf_token);
+            free(auth_ticket);
+            system(cmd);
+        }
+    }
+}
+
+
 #include "Games/Those-Who-Remain.h"
 #include "Games/Flood-Escape-Classic.h"
 #include "Games/Phantom-Forces.h"
@@ -354,11 +450,7 @@ ESP_Frame rbx_draw_esp_box(task_t task,
 #include "Games/Field-Of-Battle.h"
 #include "Games/Doors.h"
 #include "Games/Arsenal.h"
-//#include "Games/Assassin.h" //Not currently working
-#include "Games/Aimblox.h"
-#include "Games/Weaponry.h"
-#include "Games/Arabic Fortnite.h"
-#include "Games/Flee-The-Facility.h"
+#include "Games/Blox-Fruits.h"
 #include "Games/Jailbreak.h"
 #include "Games/Emergency-Response.h"
 
@@ -369,7 +461,7 @@ int main(int argc, char** argv)
     printf("RobloxCheats pid: %d\n", getpid());
     task_t task;
     pid_t pid_array[4096];
-    pids_by_name("RobloxPlayer", pid_array);
+    int process_count = pids_by_name("RobloxPlayer", pid_array);
     pid_t pid = pid_array[0]; //The most recent RobloxPlayer process.
     printf("RobloxPlayer pid: %d\n", pid);
     printf("If using in Xcode, make sure both libESP.dylib and RobloxCheats are building for Intel\n");
@@ -379,19 +471,69 @@ int main(int argc, char** argv)
         printf("%s%d\n", "failed to obtain task port for pid: ", pid);
         printf("%s\n", mach_error_string(kr));
     }
+
+    //We have to run the Blox Fruits Chest Farm from the Command Line, since whenever we launch Roblox from this process, Roblox becomes a child process.
+    if (argc == 2)
+    {
+        if (strcmp(argv[1], "blox_fruits_chest_farm") == 0)
+        {
+            if (process_count > 0)
+            {
+                blox_fruits_chest_collect(task);
+                sleep(10);
+                exit(0);
+            }
+            else
+            {
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+                {
+                    sleep(20);
+                    exit(0);
+                });
+                rbx_launch_game(2753915549, __COOKIE_TXT_PATH__); //blox fruits
+            }
+        }
+    }
     
-       
     
+    //rbx_launch_game(292439477); //PF
+
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
+        
+        /*vm_address_t game = rbx_find_game_address(task);
+        vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
+        vm_address_t players = rbx_instance_find_first_child_of_class(task, game, "Players");
+        vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
+        vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players, "Player");
+        vm_address_t map_model = rbx_instance_find_first_child(task, workspace, "Map");
+        vm_address_t enemies_folder = rbx_instance_find_first_child(task, workspace, "Enemies");
+        vm_address_t npcs_folder = rbx_instance_find_first_child(task, workspace, "NPCs");
+        vm_address_t playergui = rbx_instance_find_first_child_of_class(task, local_player, "PlayerGui");
+        vm_address_t maingui = rbx_instance_find_first_child(task, playergui, "Main");
+        rbx_print_descendants(task, blox_fruits_find_quest_giver(task, npcs_folder), 0, 0);
+        rbx_print_descendants(task, maingui, 0, 5);*/
+        //printf("%p\n", printf);
+        //fly_test(task);
+        //blox_fruits_find_first_alive_enemy_of_lowest_level(task, enemies_folder, "");
+        //rbx_instance_for_each_descendant(task, workspace, bf_func);
+        
+        /*
+         [Model] Bandit Quest Giver (0x7f812dc95a90) (child count: 23)
+         */
+        //rbx_print_descendants(task, blox_fruits_find_quest_giver(task, npcs_folder), 0, 0);
+        //printf("%p\n", rbx_find_game_address(task));
+        //blox_fruits_chest_collect(task);
+        //blox_fruits_auto_farm(task);
         //arsenal_cheat(task);
         //aimblox_cheat(task);
         //arabic_fortnite_cheat(task);
         //doors_test(task);
         //doors_cheat(task);
         //flood_escape_classic_cheat(task);
-        phantom_forces_cheat(task);
+        //phantom_forces_cheat(task);
         //find_object_offsets(task, "blockmincer");
+        //fly_test(task);
         //fob_troll(task);
         //func_call_test(task);
         //field_of_battle_collect_legendary_gem(task);
@@ -408,14 +550,7 @@ int main(int argc, char** argv)
     
     for (;;)
     {
-        sleep(1);
-        pid_t buf;
-        if (pids_by_name("RobloxPlayer", &buf) == 0)
-        {
-            printf("RobloxPlayer process can no longer be found...\n");
-            printf(" > EXITING...\n");
-            exit(0);
-        }
+        sleep(10);
     }
     
     return 0;
