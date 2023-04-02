@@ -15,21 +15,10 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 DYLD_INSERT_LIBRARIES=(path to libESP.dylib) (path to RobloxPlayer) <br> <br>
 See [<b>robloxShell</b>](https://github.com/notahacker8/RobloxCheats/blob/main/robloxShell) for an example<br>
 
-## Arsenal Aimbot + ESP
 ![Arsenal Aimbot + ESP](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Arsenal-Aimbot-ESP.png)
-
-## Jailbreak Aimbot + ESP + Speed
 ![Jailbreak Aimbot + ESP + Speed](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Jailbreak-Aimbot-ESP-Speed.png)
-
-## Phantom Forces Aimbot + ESP
 ![Phantom Forces Aimbot + ESP](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Phantom-Forces-Aimbot-ESP.png)
-
-## Emergency Response Aimbot + ESP + Speed
 ![Emergency Response Aimbot + ESP + Speed](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Emergency-Response-Aimbot-ESP-Speed.png)
-
-## Those Who Remain Item ESP
 ![Those Who Remain Item ESP](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Those-Who-Remain-Item-ESP.png)
-
-## Doors ESP
 ![Doors ESP](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Doors-ESP.png)
 ![Doors ESP](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-Images/Doors-ESP-2.png)
