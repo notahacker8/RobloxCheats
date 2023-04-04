@@ -9,6 +9,11 @@
 void field_of_battle_collect_legendary_gem(task_t task)
 {
     printf("- FIELD OF BATTLE (LEGENDARY GEM COLLECTOR) -\n");
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;) { pid_t a[4096]; if (pids_by_name("RobloxPlayer", a) == 0) { exit(0); } sleep(1); }
+    });
 
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
@@ -430,28 +435,6 @@ void field_of_battle_auto_farm(task_t task)
 }
 
 
-
-void fob_troll(task_t task)
-{
-    vm_address_t game = rbx_find_game_address(task);
-    vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
-    vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
-    vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
-    vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
-    vm_address_t og_char = rbx_player_get_character(task, local_player);
-    vm_address_t ogcharhrp = rbx_instance_find_first_child(task, og_char, "HumanoidRootPart");
-    vm_address_t backpack = rbx_instance_find_first_child(task, local_player, "Backpack");
-    vm_address_t unbreakable_folder = rbx_instance_find_first_child(task, workspace, "Unbreakable");
-    vm_address_t characters_folder = rbx_instance_find_first_child(task, unbreakable_folder, "Characters");
-    vm_address_t orc_char_folder = rbx_instance_find_first_child(task, characters_folder, "Orc");
-    vm_address_t human_char_folder = rbx_instance_find_first_child(task, characters_folder, "Human");
-    vm_address_t gen = rbx_instance_find_first_child(task, orc_char_folder, "Orc General");
-    vm_address_t genhead = rbx_instance_find_first_child(task, gen, "Head");
-    rbx_cframe_t gencf = rbx_basepart_get_cframe(task, genhead);
-    rbx_basepart_set_cframe(task, ogcharhrp, gencf);
-    rbx_camera_set_camera_subject(task, camera, gen);
-    rbx_player_set_character(task, local_player, gen);
-}
 
 
 //rbx_print_descendants(task, unbreakable_folder, 0);

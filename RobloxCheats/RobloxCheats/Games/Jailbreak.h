@@ -80,7 +80,7 @@ void jailbreak_cheat(task_t task)
             is_p_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 'p');
             if (is_p_pressed)
             {
-                sleep(1);
+                usleep(500000);
                 is_p_pressed = vm_read_1byte_value(task, load_address + keys_down_offset + 'p');
                 if (is_p_pressed)
                 {
@@ -97,19 +97,20 @@ void jailbreak_cheat(task_t task)
     {
         for (;;)
         {
-            window_w = ((int_float_u)(vm_read_4byte_value(task, load_address + window_w_offset))).f;
-            window_h = ((int_float_u)(vm_read_4byte_value(task, load_address + window_h_offset))).f;
+            window_w = ((int_float_u)((int)vm_read_4byte_value(task, load_address + window_w_offset))).f;
+            window_h = ((int_float_u)((int)vm_read_4byte_value(task, load_address + window_h_offset))).f;
             
             my_char = rbx_player_get_character(task, local_player);
             my_hrp = rbx_instance_find_first_child(task, my_char, "HumanoidRootPart");
             my_humanoid = rbx_instance_find_first_child_of_class(task, my_char, "Humanoid");
             
-            rbx_child_t* player_list = rbx_instance_get_children(task, players_service, &current_player_count);
+            long player_count = 0;
+            rbx_child_t* player_list = rbx_instance_get_children(task, players_service, &player_count);
             
             int player_index = 0;
             if (player_list)
             {
-                for (long i = 0 ; i < current_player_count ; i++)
+                for (long i = 0 ; i < player_count ; i++)
                 {
                     vm_address_t player = player_list[i].child_address;
                     if (player != local_player)
@@ -119,26 +120,31 @@ void jailbreak_cheat(task_t task)
                         vm_address_t hrp = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
                         if (hrp)
                         {
-                            char display_name_length;
-                            char* display_name = rbx_player_get_display_name(task, player, &display_name_length);
-                            if (display_name)
+                            vm_address_t instance_self = rbx_instance_get_self(task, hrp);
+                            vm_address_t parent = rbx_instance_get_parent(task, hrp);
+                            if (parent && instance_self == hrp)
                             {
-                                strcpy(player_names[player_index], display_name);
-                                vm_deallocate(mach_task_self_, (vm_address_t)display_name, display_name_length);
+                                char display_name_length;
+                                char* display_name = rbx_player_get_display_name(task, player, &display_name_length);
+                                if (display_name)
+                                {
+                                    strcpy(player_names[player_index], display_name);
+                                    vm_deallocate(mach_task_self_, (vm_address_t)display_name, display_name_length);
+                                }
+                                player_torsos[player_index] = hrp;
+                                rbx_brickcolor_info_t color_info = rbx_brick_color_index(rbx_team_get_brick_color(task, team));
+                                player_team_esp_colors[player_index].r = ((float)color_info.r)/255;
+                                player_team_esp_colors[player_index].g = ((float)color_info.g)/255;
+                                player_team_esp_colors[player_index].b = ((float)color_info.b)/255;
+                                player_team_esp_colors[player_index].a = 1;
+                                player_index++;
                             }
-                            player_torsos[player_index] = hrp;
-                            rbx_brickcolor_info_t color_info = rbx_brick_color_index(rbx_team_get_brick_color(task, team));
-                            player_team_esp_colors[player_index].r = ((float)color_info.r)/255;
-                            player_team_esp_colors[player_index].g = ((float)color_info.g)/255;
-                            player_team_esp_colors[player_index].b = ((float)color_info.b)/255;
-                            player_team_esp_colors[player_index].a = 1;
-                            player_index++;
-                          
                         }
                     }
                 }
             }
-            vm_deallocate(mach_task_self_, (vm_address_t)player_list, current_player_count * sizeof(rbx_child_t));
+            current_player_count = player_index;
+            vm_deallocate(mach_task_self_, (vm_address_t)player_list, player_count * sizeof(rbx_child_t));
             sleep(1);
         }
     });
@@ -218,8 +224,9 @@ void jailbreak_cheat(task_t task)
                     vm_address_t torso = player_torsos[i];
                     if (torso)
                     {
+                        vm_address_t instance_self = rbx_instance_get_self(task, torso);
                         vm_address_t parent = rbx_instance_get_parent(task, torso);
-                        if (parent)
+                        if (parent && instance_self == torso)
                         {
                             rbx_cframe_t torso_cframe = rbx_basepart_get_cframe(task, torso);
                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);

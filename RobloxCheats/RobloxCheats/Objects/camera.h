@@ -45,7 +45,7 @@ rbx_cframe_t rbx_camera_get_focus(task_t task, vm_address_t camera)
 
 float rbx_camera_get_field_of_view(task_t task, vm_address_t camera)
 {
-    return ((int_float_u)vm_read_4byte_value(task, camera + RBX_CAMERA_FOV_OFFSET)).f * (180/PI);
+    return ((int_float_u)(int)vm_read_4byte_value(task, camera + RBX_CAMERA_FOV_OFFSET)).f * (180/PI);
 }
 
 void rbx_camera_set_field_of_view(task_t task, vm_address_t camera, float new_value)

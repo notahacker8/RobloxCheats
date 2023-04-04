@@ -71,8 +71,8 @@ void emergency_response_cheat(task_t task)
     {
         for (;;)
         {
-            window_w = ((int_float_u)(vm_read_4byte_value(task, load_address + window_w_offset))).f;
-            window_h = ((int_float_u)(vm_read_4byte_value(task, load_address + window_h_offset))).f;
+            window_w = ((int_float_u)((int)vm_read_4byte_value(task, load_address + window_w_offset))).f;
+            window_h = ((int_float_u)((int)vm_read_4byte_value(task, load_address + window_h_offset))).f;
             
             bool __cee = false;
             float old_dist = 999;

@@ -64,6 +64,9 @@ long_double_u;
 
 
 
+
+
+
 ///Check if a module is loaded into the memory of a process.
 vm_address_t get_image_address(const task_t task,
                                const char* image_path)
@@ -193,7 +196,7 @@ void wait_until_input_queue_finished(task_t task, vm_address_t address, int usle
 }
 
 
-long vm_read_8byte_value(task_t task, vm_address_t address)
+unsigned long vm_read_8byte_value(task_t task, vm_address_t address)
 {
     mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
@@ -208,7 +211,7 @@ long vm_read_8byte_value(task_t task, vm_address_t address)
     return __data;
 }
 
-int vm_read_4byte_value(task_t task, vm_address_t address)
+unsigned int vm_read_4byte_value(task_t task, vm_address_t address)
 {
     mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
@@ -223,7 +226,7 @@ int vm_read_4byte_value(task_t task, vm_address_t address)
     return __data;
 }
 
-char vm_read_1byte_value(task_t task, vm_address_t address)
+unsigned char vm_read_1byte_value(task_t task, vm_address_t address)
 {
     mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
@@ -236,6 +239,20 @@ char vm_read_1byte_value(task_t task, vm_address_t address)
         vm_deallocate(mach_task_self_, (vm_address_t)read_data, 1);
     }
     return __data;
+}
+
+char is_valid_pointer(task_t task, vm_address_t address)
+{
+    mach_msg_type_number_t data_cnt;
+    vm_address_t read_data;
+    char valid = false;
+    kern_return_t kr = vm_read(task, address, 1, (vm_offset_t*)&read_data, &data_cnt);
+    if (kr == KERN_SUCCESS)
+    {
+        valid = true;
+        vm_deallocate(mach_task_self_, (vm_address_t)read_data, 1);
+    }
+    return valid;
 }
 
 
@@ -289,6 +306,8 @@ rbx_cframe_t vm_read_rbx_cframe_value(task_t task, vm_address_t address)
 #include "Objects/humanoid.h"
 #include "Objects/team.h"
 #include "Objects/meshpart.h"
+#include "Objects/lighting.h"
+#include "Objects/textlabel.h"
 
 
 
@@ -500,8 +519,9 @@ int main(int argc, char** argv)
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
-        
-        /*vm_address_t game = rbx_find_game_address(task);
+        //printf("%ld\n", blox_fruits_get_pure_enemy_name_length("Shanda [Lv. 475]", strlen("Shanda [Lv. 475]")));
+        /*vector3_t pos = {.x = -65, .y = 130, .z = -25};
+        vm_address_t game = rbx_find_game_address(task);
         vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
         vm_address_t players = rbx_instance_find_first_child_of_class(task, game, "Players");
         vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
@@ -511,8 +531,18 @@ int main(int argc, char** argv)
         vm_address_t npcs_folder = rbx_instance_find_first_child(task, workspace, "NPCs");
         vm_address_t playergui = rbx_instance_find_first_child_of_class(task, local_player, "PlayerGui");
         vm_address_t maingui = rbx_instance_find_first_child(task, playergui, "Main");
+        vm_address_t questframe = rbx_instance_find_first_child(task, maingui, "Quest");
+        vm_address_t questframe_container = rbx_instance_find_first_child(task, questframe, "Container");
+        vm_address_t questtitle_frame = rbx_instance_find_first_child(task, questframe_container, "QuestTitle");
+        vm_address_t quest_title_textlabel = rbx_instance_find_first_child(task, questtitle_frame, "Title");
+        long quest_string_length = 0;
+        char* quest_string = rbx_textlabel_get_text(task, quest_title_textlabel, &quest_string_length);
+        printf("%s\n", quest_string);
         rbx_print_descendants(task, blox_fruits_find_quest_giver(task, npcs_folder), 0, 0);
-        rbx_print_descendants(task, maingui, 0, 5);*/
+        rbx_print_descendants(task, blox_fruits_find_first_alive_enemy(task, enemies_folder, quest_string, quest_string_length), 0, 0);*/
+        //rbx_print_descendants(task, questtitle_frame, 0, 2);
+        //printf("%s\n", rbx_textlabel_get_text(task, quest_title_textlabel, malloc(8)));
+        //blox_fruits_find_first_alive_enemy(task, enemies_folder, "", 1);
         //printf("%p\n", printf);
         //fly_test(task);
         //blox_fruits_find_first_alive_enemy_of_lowest_level(task, enemies_folder, "");
@@ -526,31 +556,20 @@ int main(int argc, char** argv)
         //blox_fruits_chest_collect(task);
         //blox_fruits_auto_farm(task);
         //arsenal_cheat(task);
-        //aimblox_cheat(task);
-        //arabic_fortnite_cheat(task);
-        //doors_test(task);
         doors_cheat(task);
         //flood_escape_classic_cheat(task);
         //phantom_forces_cheat(task);
-        //find_object_offsets(task, "blockmincer");
+        //find_object_offsets(task, "nezukoaooo64");
         //fly_test(task);
-        //fob_troll(task);
-        //func_call_test(task);
         //field_of_battle_collect_legendary_gem(task);
-        //jailbreak_cop_tp(task, "blockmincer");
         //field_of_battle_auto_farm(task);
         //jailbreak_cheat(task);
         //emergency_response_cheat(task);
-        //flee_the_facility_hack(task);
-        //assassin_hack(task);
-        //weaponry_cheat(task);
-        //arabic_fortnite_cheat(task);
     });
-    
     
     for (;;)
     {
-        sleep(10);
+        sleep(5);
     }
     
     return 0;

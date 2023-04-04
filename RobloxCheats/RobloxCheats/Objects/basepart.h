@@ -10,7 +10,7 @@ vm_address_t rbx_basepart_get_properties_address(task_t task, vm_address_t basep
 float rbx_basepart_get_gravity(task_t task, vm_address_t basepart)
 {
     vm_address_t p_a = rbx_basepart_get_properties_address(task, basepart);
-    return ((int_float_u)vm_read_4byte_value(task, p_a + RBX_PART_PROPERTIES_GRAVITY_OFFSET)).f;
+    return ((int_float_u)(int)vm_read_4byte_value(task, p_a + RBX_PART_PROPERTIES_GRAVITY_OFFSET)).f;
 }
 
 void rbx_basepart_set_gravity(task_t task, vm_address_t basepart, float new_value)
@@ -38,13 +38,26 @@ void rbx_basepart_set_cframe(task_t task, vm_address_t basepart, rbx_cframe_t cf
 vector3_t rbx_basepart_get_velocity(task_t task, vm_address_t basepart)
 {
     vm_address_t p_a = rbx_basepart_get_properties_address(task, basepart);
-    return vm_read_vector3_value(task, p_a + RBX_PART_PROPERTIES_CFRAME_OFFSET + sizeof(rbx_cframe_t));
+    return vm_read_vector3_value(task, p_a + RBX_PART_PROPERTIES_VELOCITY_OFFSET);
 }
 
 void rbx_basepart_set_velocity(task_t task, vm_address_t basepart, vector3_t new_velocity)
 {
     vm_address_t p_a = rbx_basepart_get_properties_address(task, basepart);
-    vm_write(task, p_a + RBX_PART_PROPERTIES_CFRAME_OFFSET + sizeof(rbx_cframe_t), (vm_address_t)&new_velocity, sizeof(vector3_t));
+    vm_write(task, p_a + RBX_PART_PROPERTIES_VELOCITY_OFFSET, (vm_address_t)&new_velocity, sizeof(vector3_t));
+}
+
+
+vector3_t rbx_basepart_get_rotvelocity(task_t task, vm_address_t basepart)
+{
+    vm_address_t p_a = rbx_basepart_get_properties_address(task, basepart);
+    return vm_read_vector3_value(task, p_a + RBX_PART_PROPERTIES_ROTVELOCITY_OFFSET);
+}
+
+void rbx_basepart_set_rotvelocity(task_t task, vm_address_t basepart, vector3_t new_velocity)
+{
+    vm_address_t p_a = rbx_basepart_get_properties_address(task, basepart);
+    vm_write(task, p_a + RBX_PART_PROPERTIES_ROTVELOCITY_OFFSET, (vm_address_t)&new_velocity, sizeof(vector3_t));
 }
 
 

@@ -4,6 +4,7 @@
 void arsenal_cheat(task_t task)
 {
     printf("- ARSENAL (AIMBOT + ESP) -\n");
+    
     static mach_msg_type_number_t data_cnt;
     
     void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
@@ -73,8 +74,8 @@ void arsenal_cheat(task_t task)
     {
         for (;;)
         {
-            window_w = ((int_float_u)(vm_read_4byte_value(task, load_address + window_w_offset))).f;
-            window_h = ((int_float_u)(vm_read_4byte_value(task, load_address + window_h_offset))).f;
+            window_w = ((int_float_u)((int)vm_read_4byte_value(task, load_address + window_w_offset))).f;
+            window_h = ((int_float_u)((int)vm_read_4byte_value(task, load_address + window_h_offset))).f;
             
             bool __cee = false;
             float old_dist = 500;
@@ -90,7 +91,7 @@ void arsenal_cheat(task_t task)
                     vm_address_t player = player_list[i].child_address;
                     if (player && player != local_player)
                     {
-                        char pnl = 0;
+                        unsigned char pnl = 0;
                         char* pn = rbx_instance_get_name(task, player, &pnl);
                         if (pn)
                         {
@@ -104,20 +105,25 @@ void arsenal_cheat(task_t task)
                                     vm_address_t head = rbx_instance_find_first_child(task, character, "HumanoidRootPart");
                                     if (head)
                                     {
-                                        enemy_heads[enemy_head_index++] = head;
-                                        rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, head);
-                                        rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                                        const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
-                                        const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
-                                        const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
-                                        const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
-                                        const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
-                                        const float delta_ratio = (delta_dist/dist);
-                                        if (old_dist > dist && old_delta_ratio > delta_ratio)
+                                        vm_address_t parent = rbx_instance_get_parent(task, head);
+                                        vm_address_t instance_self = rbx_instance_get_self(task, head);
+                                        if (parent && instance_self == head)
                                         {
-                                            __cee = true;
-                                            old_dist = dist;
-                                            closest_enemy_head = head;
+                                            enemy_heads[enemy_head_index++] = head;
+                                            rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, head);
+                                            rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
+                                            const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
+                                            const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
+                                            const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                                            const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
+                                            const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
+                                            const float delta_ratio = (delta_dist/dist);
+                                            if (old_dist > dist && old_delta_ratio > delta_ratio)
+                                            {
+                                                __cee = true;
+                                                old_dist = dist;
+                                                closest_enemy_head = head;
+                                            }
                                         }
                                     }
                                 }
@@ -139,43 +145,39 @@ void arsenal_cheat(task_t task)
     {
         for (;;)
         {
-            vm_address_t read_data;
-            kern_return_t kr;
-            kr = vm_read(task, load_address + left_mouse_down_offset, 1, (vm_offset_t*)&read_data, &data_cnt);
-            if (kr == KERN_SUCCESS)
+            if (closest_enemy_exists && closest_enemy_head)
             {
-                char lmd = *(char*)read_data;
-                vm_deallocate(mach_task_self_, read_data, 1);
-                if (closest_enemy_exists && closest_enemy_head)
+                char lmd = vm_read_1byte_value(task, load_address + left_mouse_down_offset);
+                if (lmd)
                 {
-                    trigger_usleep_time = 30;
-                    if (lmd)
+                    trigger_usleep_time = 3;
+                    rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, closest_enemy_head);
+                    rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
+                    const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
+                    const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
+                    const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                    const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
+                    const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
+                    const float delta_ratio = (delta_dist/dist);
+                    
+                    if (max_delta_ratio > delta_ratio)
                     {
-                        trigger_usleep_time = 3;
-                        rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, closest_enemy_head);
-                        rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                        const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
-                        const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
-                        const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
-                        const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
-                        const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
-                        const float delta_ratio = (delta_dist/dist);
-                        
-                        if (max_delta_ratio > delta_ratio)
-                        {
-                            vector3_t new_look_vector = vector3_unit(head_cframe.pos, camera_cframe.pos);
-                            vector3_t inc_look_vector = vector3_div_num(vector3_sub(new_look_vector, camera_look_vector), interpolation);
-                            camera_cframe.r20 += -inc_look_vector.x;
-                            camera_cframe.r21 += -inc_look_vector.y;
-                            camera_cframe.r22 += -inc_look_vector.z;
-                            rbx_camera_set_cframe(task, camera, &camera_cframe);
-                        }
+                        vector3_t new_look_vector = vector3_unit(head_cframe.pos, camera_cframe.pos);
+                        vector3_t inc_look_vector = vector3_div_num(vector3_sub(new_look_vector, camera_look_vector), interpolation);
+                        camera_cframe.r20 += -inc_look_vector.x;
+                        camera_cframe.r21 += -inc_look_vector.y;
+                        camera_cframe.r22 += -inc_look_vector.z;
+                        rbx_camera_set_cframe(task, camera, &camera_cframe);
                     }
                 }
                 else
                 {
-                    trigger_usleep_time = 75;
+                    trigger_usleep_time = 30;
                 }
+            }
+            else
+            {
+                trigger_usleep_time = 75;
             }
             usleep(trigger_usleep_time);
         }
@@ -196,13 +198,14 @@ void arsenal_cheat(task_t task)
                     vm_address_t enemy_head = enemy_heads[i];
                     if (enemy_head)
                     {
-                        vm_address_t parent = rbx_instance_get_parent(task, enemy_head);
                         if (enemy_head == closest_enemy_head && closest_enemy_exists)
                         {
                             color = target_color;
                             border_width = 3;
                         }
-                        if (parent)
+                        vm_address_t parent = rbx_instance_get_parent(task, enemy_head);
+                        vm_address_t instance_self = rbx_instance_get_self(task, enemy_head);
+                        if (parent && instance_self == enemy_head)
                         {
                             rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, enemy_head);
                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);

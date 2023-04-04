@@ -16,6 +16,12 @@ void func(task_t task, vm_address_t instance)
 }
 */
 
+long blox_fruits_get_pure_enemy_name_length(char* name, int name_length)
+{
+    static char buf[2] = " [";
+    return (long)((char*)memmem(name, name_length, buf, 2) - name);
+}
+
 vm_address_t blox_fruits_find_first_fruit(task_t task, vm_address_t workspace)
 {
     vm_address_t fruit = 0;
@@ -47,10 +53,8 @@ vm_address_t blox_fruits_find_quest_giver(task_t task, vm_address_t npcs_folder)
         vm_address_t questbbg = rbx_instance_find_first_child(task, head, "QuestBBG");
         vm_address_t title = rbx_instance_find_first_child(task, questbbg, "Title");
         
-        char title_string_length = vm_read_1byte_value(task, title + RBX_TEXT_LABEL_SHORT_TEXT_OFFSET)/2;
-        char* title_string = NULL;
-        mach_msg_type_number_t data_cnt;
-        vm_read(task, title + RBX_TEXT_LABEL_SHORT_TEXT_OFFSET + 1, title_string_length, (vm_offset_t*)&title_string, &data_cnt);
+        long title_string_length = 0;
+        char* title_string = rbx_textlabel_get_text(task, title, &title_string_length);
         if (title_string)
         {
             if (strcmp(title_string, "QUEST") == 0)
@@ -62,6 +66,49 @@ vm_address_t blox_fruits_find_quest_giver(task_t task, vm_address_t npcs_folder)
     }
     return quest_giver;
 }
+
+
+vm_address_t blox_fruits_find_first_alive_enemy(task_t task,
+                                                vm_address_t enemies_folder,
+                                                char* quest_string,
+                                                long quest_string_length)
+{
+    long child_count = 0;
+    vm_address_t found_child = 0;
+    rbx_child_t* children = rbx_instance_get_children(task, enemies_folder, &child_count);
+    if (children)
+    {
+        for (long i = 0 ; i < child_count ; i++)
+        {
+            vm_address_t child = children[i].child_address;
+            if (child)
+            {
+                unsigned char name_len;
+                char* name = rbx_instance_get_name(task, child, &name_len);
+                if (name && name_len > 5)
+                {
+                    long pure_name_len = blox_fruits_get_pure_enemy_name_length(name, name_len);
+                    if (memmem(quest_string, quest_string_length, name, pure_name_len))
+                    {
+                        vm_address_t head = rbx_instance_find_first_child(task, child, "Head");
+                        if (head)
+                        {
+                            if (!rbx_instance_find_first_child_of_class(task, head, "ParticleEmitter"))
+                            {
+                                found_child = child;
+                                i = child_count;  //break the loop, without skipping the deallocating part.
+                            }
+                        }
+                    }
+                    vm_deallocate(mach_task_self_, (vm_address_t)name, name_len);
+                }
+            }
+        }
+        vm_deallocate(mach_task_self_, (vm_address_t)children, child_count * sizeof(rbx_child_t));
+    }
+    return found_child;
+}
+
 
 
 
