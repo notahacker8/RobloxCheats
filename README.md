@@ -15,7 +15,7 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 cd /path/to/RobloxCheatsFolder/
 ./RobloxShell
 ```
-***open a new terminal window*** <br>
+***open a new terminal window***
 ```
 cd /path/to/RobloxCheatsFolder/
 ./RobloxCheats
