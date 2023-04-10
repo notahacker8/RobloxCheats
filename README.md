@@ -13,7 +13,7 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 ## Usage (Terminal)
 > cd /path/to/RobloxCheatsFolder/<br>
 > ./RobloxShell<br>
-***or***
+***or*** <br>
 > ./RobloxCheats<br>
 
 ## Images
