@@ -13,15 +13,15 @@ This project was rebuilt to be more flexible with updates and crash the applicat
  - ***root*** is not required for the cheat to work. However, SIP will have to be disabled for the cheat to work now.
 
 ## Usage (Terminal)
-***to run a new Roblox process with libESP.dylib injected:***
+***To run a new Roblox process with libESP.dylib injected:***
 ```
 cd /path/to/RobloxCheatsFolder/
 ./RobloxShell
 ```
-***to run RobloxCheats***
+***To run RobloxCheats:***
 ```
 cd /path/to/RobloxCheatsFolder/
-./RobloxCheats
+./RobloxCheats [[parameters]]
 ```
 
 ## Images
