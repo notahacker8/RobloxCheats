@@ -5,16 +5,13 @@ void phantom_forces_cheat(task_t task)
 {
     printf("- PHANTOM FORCES (AIMBOT + ESP + MELEE) -\n");
     
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
-        {
-            for (;;) { pid_t a[4096]; if (pids_by_name("RobloxPlayer", a) == 0) { exit(0); } sleep(1); }
-        });
-
-    static mach_msg_type_number_t data_cnt;
+    void* dlhandle = dlopen(__LIBESP_DYLIB_PATH__, RTLD_NOW);
+    if (!dlhandle)
+    {
+        printf("%s\n", dlerror());
+    }
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
-    
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
+    vm_address_t s_load_address = task_get_image_address_by_path(mach_task_self_, __LIBESP_DYLIB_PATH__);
     
     vm_offset_t left_mouse_down_offset = gdso(dlhandle, s_load_address, "LEFT_MOUSE_DOWN");
     vm_offset_t esp_enabled_offset = gdso(dlhandle, s_load_address, "ESP_ENABLED");
@@ -30,14 +27,19 @@ void phantom_forces_cheat(task_t task)
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
+    vm_address_t load_address =  task_get_image_address_by_path(task, __LIBESP_DYLIB_PATH__);
+    if (!load_address)
+    {
+        printf("Couldn't find libESP.dylib in task %d\n", task);
+        exit(0);
+    }
     
     static char esp_enabled = true;
     static char aimbot_enabled = true;
     
     static int max_player_count = RBX_PHANTOM_FORCES_MAX_PLAYER_COUNT;
     
-    static const float max_delta_ratio = 0.125;
+    static const float max_delta_dist = 6.5;
     static const float max_dist = 500;
     
     vm_write(task, load_address + esp_count_offset, (vm_offset_t)&max_player_count, 4);
@@ -91,6 +93,13 @@ void phantom_forces_cheat(task_t task)
     static long camera_child_count = 0;
     
     
+    
+
+#pragma mark - Object Loop -
+    
+    
+    
+    
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
@@ -109,7 +118,6 @@ void phantom_forces_cheat(task_t task)
                 if (camera_child_count > 2)
                 {
                     vm_address_t main = camera_children[2].child_address;
-                    //rbx_print_descendants(task, main, 0, 0);
                     vm_address_t handle = rbx_instance_find_first_child(task, main, "Handle");
                     if (handle)
                     {
@@ -160,7 +168,7 @@ void phantom_forces_cheat(task_t task)
             }
             
             bool __cee = false;
-            float old_delta_ratio = max_delta_ratio;
+            float old_delta_dist = max_delta_dist;
             float old_dist = max_dist;
             
             int enemy_torso_index = 0;
@@ -183,26 +191,27 @@ void phantom_forces_cheat(task_t task)
                             
                             rbx_cframe_t torso_cframe = rbx_basepart_get_cframe(task, torso);
                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                            const float dist = vector3_dist_dif(torso_cframe.pos, camera_cframe.pos);
+                            float dist;
+                            const float depth = rbx_get_camera_relative_depth(camera_cframe, torso_cframe.pos, &dist);
                             
                             if (!is_holding_melee)
                             {
                                 const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
-                                const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                                const vector3_t f_offset = vector3_mul_num(camera_look_vector, depth);
                                 const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
                                 const float delta_dist = vector3_dist_dif(f_pos, torso_cframe.pos);
-                                const float delta_ratio = (delta_dist/dist);
                                 
-                                if (old_dist > dist && old_delta_ratio > delta_ratio)
+                                if (old_dist > dist && old_delta_dist > delta_dist)
                                 {
                                     __cee = true;
-                                    old_dist = dist;
+                                    //old_dist = dist;
+                                    old_delta_dist = delta_dist;
                                     closest_enemy_torso = torso;
                                 }
                             }
                             else
                             {
-                                if (dist < 17)
+                                if (dist < 13) //Max is 22 before the game stops registering hits with melees.
                                 {
                                     closest_enemy_torso = torso;
                                     __cee = true;
@@ -219,6 +228,14 @@ void phantom_forces_cheat(task_t task)
             usleep(300000);
         }
     });
+    
+    
+    
+
+#pragma mark - ESP -
+    
+    
+    
     
     if (esp_enabled)
     {
@@ -269,6 +286,13 @@ void phantom_forces_cheat(task_t task)
             }
         });
     }
+    
+    
+    
+    
+#pragma mark - Aimbot + Melee -
+    
+    
     
 
     if (aimbot_enabled)

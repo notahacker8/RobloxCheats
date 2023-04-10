@@ -3,14 +3,17 @@
 
 void jailbreak_cheat(task_t task)
 {
-    static mach_msg_type_number_t data_cnt;
     
     printf(" - JAILBREAK (ESP + FLY) - \n");
     printf("Hold 'p' for 1 second to toggle fly\n");
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
+    void* dlhandle = dlopen(__LIBESP_DYLIB_PATH__, RTLD_NOW);
+    if (!dlhandle)
+    {
+        printf("%s\n", dlerror());
+    }
     
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
+    vm_address_t s_load_address = task_get_image_address_by_path(mach_task_self_, __LIBESP_DYLIB_PATH__);
     
     vm_offset_t keys_down_offset = gdso(dlhandle, s_load_address, "KEYS_DOWN");
     vm_offset_t esp_enabled_offset = gdso(dlhandle, s_load_address, "ESP_ENABLED");
@@ -27,12 +30,17 @@ void jailbreak_cheat(task_t task)
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
+    vm_address_t load_address =  task_get_image_address_by_path(task, __LIBESP_DYLIB_PATH__);
+    if (!load_address)
+    {
+        printf("Couldn't find libESP.dylib in task %d\n", task);
+        exit(0);
+    }
     
     char esp_enabled = true;
-    vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, 1);
+    vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, (int)sizeof(char));
     int esp_count = RBX_JAILBREAK_MAX_PLAYER_COUNT * 2;
-    vm_write(task, load_address + esp_count_offset, (vm_offset_t)&esp_count, 4);
+    vm_write(task, load_address + esp_count_offset, (vm_offset_t)&esp_count, (int)sizeof(int));
     
     vm_address_t esp_box_text_array = load_address + esp_box_text_array_offset;
     vm_address_t esp_box_hidden_array = load_address + esp_box_hidden_array_offset;
@@ -113,6 +121,7 @@ void jailbreak_cheat(task_t task)
                 for (long i = 0 ; i < player_count ; i++)
                 {
                     vm_address_t player = player_list[i].child_address;
+                    //rbx_print_descendants(task, player, 0, 0);
                     if (player != local_player)
                     {
                         vm_address_t team = rbx_player_get_team(task, player);
@@ -128,6 +137,7 @@ void jailbreak_cheat(task_t task)
                                 char* display_name = rbx_player_get_display_name(task, player, &display_name_length);
                                 if (display_name)
                                 {
+                                    //printf("%s\n", display_name);
                                     strcpy(player_names[player_index], display_name);
                                     vm_deallocate(mach_task_self_, (vm_address_t)display_name, display_name_length);
                                 }

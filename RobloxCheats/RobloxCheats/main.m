@@ -5,6 +5,7 @@
 //  Created by me on 9/10/22.
 //
 
+
 typedef struct
 {
     unsigned char r;
@@ -38,6 +39,7 @@ long_double_u;
 #include <mach-o/loader.h>
 #include <mach/mach_vm.h>
 #include <mach/arm64/asm.h>
+#include <mach-o/dyld.h>
 #include <mach/arm/thread_state.h>
 #include <mach/arm/thread_status.h>
 #include <mach/thread_state.h>
@@ -51,60 +53,22 @@ long_double_u;
 #include <pthread.h>
 #include <pthread/sched.h>
 
-
-#define __INJECTED_DYLIB_PATH__ "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/ESP-drqlefpymzgresdhcnxyusawdjhf/Build/Products/Debug/libESP.dylib"
-#define __CPUTHROTTLE_PATH__ "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/cputhrottle_remake-dlbdozizqeucwzedjzkryqbozbek/Build/Products/Debug/cputhrottle_remake"
-#define __COOKIE_TXT_PATH__ "/Users/dimitriarmendariz/Documents/roblox-cookie.txt"
-
+#include "Memory.h"
+#include "ESP.h"
+#include "Requests.h"
 
 
 #define PI 3.1415926535
 
+/*
+ This is for testing, change it if you are NOT me.
+ */
 
-
-
-
-
-
-
-///Check if a module is loaded into the memory of a process.
-vm_address_t get_image_address(const task_t task,
-                               const char* image_path)
-{
-    vm_address_t image_address = 0;
-    kern_return_t kr;
-    mach_msg_type_number_t size = 0;
-    mach_msg_type_number_t data_cnt = 0;
-    
-    struct task_dyld_info dyld_info;
-    mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
-    kr = task_info(task, TASK_DYLD_INFO, (task_info_t)&dyld_info, &count);
-    struct dyld_all_image_infos* infos;
-    size = sizeof(struct dyld_all_image_infos);
-    vm_read(task, dyld_info.all_image_info_addr, size, (vm_address_t*)&infos, &data_cnt);
-    int info_count = infos -> infoArrayCount;
-    
-    size = sizeof(struct dyld_image_info);
-    
-    for (int i = 0 ; i < info_count ; i++)
-    {
-        vm_address_t diia = ((vm_address_t)(infos -> infoArray)) + (i * size);
-        struct dyld_image_info* i;
-        vm_read(task, diia, size, (vm_address_t*)&i, &data_cnt);
-        vm_address_t img_file_path_ptr = (vm_address_t)(i -> imageFilePath);
-        vm_address_t img_ld_address = (vm_address_t)(i -> imageLoadAddress);
-        char* img_file_path;
-        kr = vm_read(task, img_file_path_ptr, PATH_MAX, (vm_address_t*)&img_file_path, &data_cnt);
-        if (kr == KERN_SUCCESS)
-        {
-            if (strcmp(image_path, img_file_path) == 0)
-            {
-                image_address = img_ld_address;
-            }
-        }
-    }
-    return image_address;
-}
+char* __ROBLOXPLAYER_PATH__ = "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer";
+char* __LIBESP_DYLIB_PATH__ = "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/ESP-drqlefpymzgresdhcnxyusawdjhf/Build/Products/Debug/libESP.dylib";
+char* __COOKIE_TXT_PATH__ = "/Users/dimitriarmendariz/Documents/roblox-cookie.txt";
+char* __OFFSETS_TXT_PATH__ = "/Users/dimitriarmendariz/Documents/roblox-offsets.txt";
+char* __CPUTHROTTLE_PATH__ = "/Users/dimitriarmendariz/Library/Developer/Xcode/DerivedData/cputhrottle_remake-dlbdozizqeucwzedjzkryqbozbek/Build/Products/Debug/cputhrottle_remake";
 
 
 
@@ -131,138 +95,165 @@ int pids_by_name(char* name, pid_t* inout_array)
     return pid_index;
 }
 
-vm_address_t** task_get_regions(task_t task, int region_count)
+
+
+int keycode_for_character(char c)
 {
-    kern_return_t kr;
-    vm_address_t address = 0;
-    vm_size_t size = 0;
-    uint32_t depth = 0;
-    
-    vm_address_t** a = malloc(16);
-    a[0] = malloc(8 * region_count);
-    a[1] = malloc(8 * region_count);
-    
-    for (int i = 0 ; i < region_count ; i++)
+    static int keycodes[255];
+    static char has_been_called = false;
+    if (!has_been_called)
     {
-        struct vm_region_submap_info_64 info;
-        mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
-        kr = vm_region_recurse_64(task, &address, &size, &depth, (vm_region_info_64_t)&info, &count);
-        if (kr != KERN_SUCCESS)
+        has_been_called = true;
+        keycodes['a'] = 0;
+        keycodes['b'] = 11;
+        keycodes['c'] = 8;
+        keycodes['d'] = 2;
+        keycodes['e'] = 14;
+        keycodes['f'] = 3;
+        keycodes['g'] = 5;
+        keycodes['h'] = 4;
+        keycodes['i'] = 34;
+        keycodes['j'] = 38;
+        keycodes['k'] = 40;
+        keycodes['l'] = 37;
+        keycodes['m'] = 46;
+        keycodes['n'] = 45;
+        keycodes['o'] = 31;
+        keycodes['p'] = 35;
+        keycodes['q'] = 12;
+        keycodes['r'] = 15;
+        keycodes['s'] = 1;
+        keycodes['t'] = 17;
+        keycodes['u'] = 32;
+        keycodes['v'] = 9;
+        keycodes['w'] = 13;
+        keycodes['x'] = 7;
+        keycodes['y'] = 16;
+        keycodes['z'] = 6;
+        keycodes['0'] = 29;
+        keycodes['1'] = 18;
+        keycodes['2'] = 19;
+        keycodes['3'] = 20;
+        keycodes['4'] = 21;
+        keycodes['5'] = 23;
+        keycodes['6'] = 22;
+        keycodes['7'] = 26;
+        keycodes['8'] = 28;
+        keycodes['9'] = 25;
+    }
+    return keycodes[tolower(c)];
+}
+
+void wait_until_queue_finished(task_t task, vm_address_t address, int usleep_time)
+{
+    for (;;)
+    {
+        if (vm_read_1byte_value(task, address) == 1)
         {
             break;
         }
-        if (info.is_submap){
-            depth++;
-        }
-        else {
-            a[0][i] = address; //First pointer is an array of region starts;
-            a[1][i] = address + size; //Second pointer is an array of region ends;
-            address += size;
-        }
-    }
-    return a;
-}
-
-vm_address_t get_base_address(task_t task)
-{
-    vm_address_t** regions = task_get_regions(task, 1);
-    vm_address_t a = regions[0][0];
-    free((void*)regions);
-    return a;
-}
-
-void wait_until_input_queue_finished(task_t task, vm_address_t address, int usleep_time)
-{
-    mach_msg_type_number_t data_cnt;
-    
-    for (;;)
-    {
-        vm_address_t read_data;
-        kern_return_t kr = vm_read(task, address, 1, &read_data, &data_cnt);
-        if (kr == KERN_SUCCESS)
+        else
         {
-            char f = *(char*)read_data;
-            vm_deallocate(mach_task_self_, read_data, 1);
-            if (f == false)
-            {
-                usleep(usleep_time);
-            }
-            if (f == true)
-            {
-                return;
-            }
+            usleep(usleep_time);
         }
     }
+    return;
 }
 
-
-unsigned long vm_read_8byte_value(task_t task, vm_address_t address)
+void send_simple_keypress(task_t task,
+                          vm_address_t load_address,
+                          vm_address_t input_queue_offset,
+                          vm_address_t input_queue_count_offset,
+                          vm_address_t input_queue_finished_offset,
+                          int keycode,
+                          useconds_t duration)
 {
-    mach_msg_type_number_t data_cnt;
-    vm_address_t read_data;
-    long __data = 0;
-    kern_return_t kr;
-    kr = vm_read(task, address, 8, (vm_offset_t*)&read_data, &data_cnt);
-    if (kr == KERN_SUCCESS)
-    {
-        __data = *(long*)read_data;
-        vm_deallocate(mach_task_self_, (vm_address_t)read_data, 8);
-    }
-    return __data;
+    static char f = 0;
+    static int input_count = 2;
+    Input inputs[input_count];
+    inputs[0] = (Input){.type = 1, .duration = duration, .keycode = keycode, .window_index = 0};
+    inputs[1] = (Input){.type = 2, .duration = 0, .keycode = keycode, .window_index = 0};
+    
+    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
+    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
+    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, sizeof(char));
+    
+    wait_until_queue_finished(task, load_address + input_queue_finished_offset, 500);
 }
 
-unsigned int vm_read_4byte_value(task_t task, vm_address_t address)
+//This one sends a character along with the Input. We can't use this for buttons like 'Tab' or 'Delete'
+void send_character_keypress(task_t task,
+                             vm_address_t load_address,
+                             vm_address_t input_queue_offset,
+                             vm_address_t input_queue_count_offset,
+                             vm_address_t input_queue_finished_offset,
+                             char character,
+                             useconds_t duration)
 {
-    mach_msg_type_number_t data_cnt;
-    vm_address_t read_data;
-    int __data = 0;
-    kern_return_t kr;
-    kr = vm_read(task, address, sizeof(int), (vm_offset_t*)&read_data, &data_cnt);
-    if (kr == KERN_SUCCESS)
-    {
-        __data = *(int*)read_data;
-        vm_deallocate(mach_task_self_, (vm_address_t)read_data, 4);
-    }
-    return __data;
+    static char f = 0;
+    static int input_count = 2;
+    int keycode = keycode_for_character(character);
+    Input inputs[input_count];
+    inputs[0] = (Input){.type = 1, .duration = duration, .keycode = keycode, .window_index = 0, .characters[0] = character};
+    inputs[1] = (Input){.type = 2, .duration = 0, .keycode = keycode, .window_index = 0, .characters[0] = character};
+    
+    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
+    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
+    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, sizeof(char));
+    
+    wait_until_queue_finished(task, load_address + input_queue_finished_offset, 500);
 }
 
-unsigned char vm_read_1byte_value(task_t task, vm_address_t address)
+//Sends a click, but the coordinates don't really matter. It's usually where your mouse already is.
+void send_left_click(task_t task,
+                     vm_address_t load_address,
+                     vm_address_t input_queue_offset,
+                     vm_address_t input_queue_count_offset,
+                     vm_address_t input_queue_finished_offset,
+                     NSPoint point,
+                     useconds_t duration)
 {
-    mach_msg_type_number_t data_cnt;
-    vm_address_t read_data;
-    char __data = 0;
-    kern_return_t kr;
-    kr = vm_read(task, address, 1, (vm_offset_t*)&read_data, &data_cnt);
-    if (kr == KERN_SUCCESS)
-    {
-        __data = *(char*)read_data;
-        vm_deallocate(mach_task_self_, (vm_address_t)read_data, 1);
-    }
-    return __data;
+    static char f = 0;
+    static int input_count = 2;
+    Input inputs[input_count];
+    inputs[0] = (Input){.type = 3, .duration = duration, .window_index = 0, .x = point.x, .y = point.y};
+    inputs[1] = (Input){.type = 4, .duration = 0, .window_index = 0, .x = point.x, .y = point.y};
+    
+    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
+    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
+    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, sizeof(char));
+    
+    wait_until_queue_finished(task, load_address + input_queue_finished_offset, 500);
 }
 
-char is_valid_pointer(task_t task, vm_address_t address)
+//Moves your mouse for you.
+void send_mouse_move(task_t task,
+                     vm_address_t load_address,
+                     vm_address_t input_queue_offset,
+                     vm_address_t input_queue_count_offset,
+                     vm_address_t input_queue_finished_offset,
+                     NSPoint point)
 {
-    mach_msg_type_number_t data_cnt;
-    vm_address_t read_data;
-    char valid = false;
-    kern_return_t kr = vm_read(task, address, 1, (vm_offset_t*)&read_data, &data_cnt);
-    if (kr == KERN_SUCCESS)
-    {
-        valid = true;
-        vm_deallocate(mach_task_self_, (vm_address_t)read_data, 1);
-    }
-    return valid;
+    static char f = 0;
+    static int input_count = 1;
+    Input inputs[input_count];
+    inputs[0] = (Input){.type = 0, .duration = 0, .window_index = 0, .x = point.x, .y = point.y};
+    
+    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
+    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
+    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, sizeof(char));
+    
+    wait_until_queue_finished(task, load_address + input_queue_finished_offset, 500);
 }
+
 
 
 #include "Objects/offsets.h"
-
 #include "Objects/brickcolors.h"
-#include "Objects/ESP.h"
-
 #include "Objects/vector3.h"
 #include "Objects/cframe.h"
+
+
 
 vector3_t vm_read_vector3_value(task_t task, vm_address_t address)
 {
@@ -308,6 +299,9 @@ rbx_cframe_t vm_read_rbx_cframe_value(task_t task, vm_address_t address)
 #include "Objects/meshpart.h"
 #include "Objects/lighting.h"
 #include "Objects/textlabel.h"
+
+#include "Objects/<<<ROOT>>>.h"
+#include "Objects/functions.h"
 
 
 
@@ -388,81 +382,161 @@ ESP_Frame rbx_draw_esp_box(task_t task,
     return frame;
 }
 
-
-void rbx_launch_game(long place_id, char* cookie_file_path)
+//Launch a roblox game from RobloxCheats using your cookie and desired PlaceId. ServerId/JobId is optional.
+void rbx_launch_game(char* cookie_path,
+                     char* placeid,
+                     char* serverid)
 {
-    static int buffer_size = 99999;
-    char cmd[buffer_size];
-    char* auth_ticket_cmd = "echo $(curl -i 'https://auth.roblox.com/v1/authentication-ticket/' -X 'POST' -H 'authority: auth.roblox.com' -H 'accept: */*' -H 'accept-language: en-US,en;q=0.8' -H 'content-length: 0' -H 'content-type: application/json' -H 'cookie: %s' -H 'origin: https://www.roblox.com' -H 'referer: https://www.roblox.com/' -H 'sec-ch-ua: \"Brave\";v=\"111\", \"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"111\"' -H 'sec-ch-ua-mobile: ?0' -H 'sec-ch-ua-platform: \"macOS\"' -H 'sec-fetch-dest: empty' -H 'sec-fetch-mode: cors' -H 'sec-fetch-site: same-site' -H 'sec-gpc: 1' -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36' -H 'x-csrf-token: %s')";
-    char* place_launch_cmd = "DYLD_INSERT_LIBRARIES=%s /Applications/Roblox.app/Contents/MacOS/RobloxPlayer -ticket %s -launchtime 1679869627256 -scriptURL \"https://assetgame.roblox.com/game/PlaceLauncher.ashx?request=RequestGame&browserTrackerId=142472346421&placeId=%ld&isPlayTogetherGame=false&joinAttemptId=0f907d75-ec16-4d3b-8d80-3f02d0cafc4b&joinAttemptOrigin=PlayButton\" -browserTrackerId 142472346421 -rloc en_us -gloc en_us -launchExp InApp";
+    struct stat buf;
+    if (stat(cookie_path, &buf) != 0)
+    {
+        fprintf(stderr, "failed to get info about file: '%s'\n", cookie_path);
+        return;
+    };
     
-    char cookie[buffer_size];
-    struct stat file_stat;
-    stat(cookie_file_path, &file_stat);
-    FILE* fp = fopen(cookie_file_path, "r");
-    fgets(cookie, (int)file_stat.st_size, fp);
+    char* cookie = malloc(buf.st_size);
+    FILE* fp = fopen(__COOKIE_TXT_PATH__, "r");
+    if (!fp)
+    {
+        fprintf(stderr, "failed to get read data from file: %s\n", cookie_path);
+    }
+    fread(cookie, buf.st_size, 1, fp);
     fclose(fp);
     
-    sprintf(cmd, auth_ticket_cmd, cookie, "");
+    static NSString* rbx_auth_ticket;
+    rbx_auth_ticket = NULL;
     
-    printf("%s\n", cmd);
+    static NSMutableURLRequest* request1;
+    request1 = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:@"https://auth.roblox.com/v1/authentication-ticket/"]];
+    [request1 setHTTPMethod:@"POST"];
+    [request1 setValue:@"0" forHTTPHeaderField:@"Content-Length"];
+    [request1 setValue:@"https://www.roblox.com" forHTTPHeaderField:@"referer"];
+    [request1 setValue:[NSString stringWithCString:cookie encoding:NSNonLossyASCIIStringEncoding] forHTTPHeaderField:@"cookie"];
     
-    char* csrf_token = NULL;
-    char* auth_ticket = NULL;
-    
-    FILE* pipe = NULL;
-    char response[buffer_size];
-    
-    char* csrf_token_start = NULL;
-    while (!csrf_token_start)
+    static char request1_finished = false;
+    printf("STARTING\n");
+    while (!rbx_auth_ticket)
     {
-        pipe = popen(cmd, "r");
-        fgets(response, buffer_size, pipe);
-        pclose(pipe);
-        csrf_token_start = strstr(response, "x-csrf-token: ");
+        request1_finished = false;
+        //NSLog(@"%@", [request1 allHTTPHeaderFields]);
+        NSURLSessionDataTask *data_task = [NSURLSession.sharedSession dataTaskWithRequest:request1
+                                                                        completionHandler:^(NSData *data,
+                                                                                            NSURLResponse *response,
+                                                                                            NSError *error)
+       {
+            NSHTTPURLResponse *http_response = (NSHTTPURLResponse *)response;
+            if(http_response.statusCode == 200)
+            {
+                rbx_auth_ticket = [http_response valueForHTTPHeaderField:@"rbx-authentication-ticket"];
+            }
+            else
+            {
+                NSString* xcsrf_token = [http_response valueForHTTPHeaderField:@"x-csrf-token"];
+                [request1 setValue:xcsrf_token forHTTPHeaderField:@"x-csrf-token"];
+            }
+            request1_finished = true;
+        }];
+        [data_task resume];
+        while (!request1_finished)
+        {
+            usleep(1000);
+        }
+        
     }
     
-    if (csrf_token_start)
+    request1_finished = false;
+    
+    free(cookie);
+    
+    char* place_launch_cmd = "DYLD_INSERT_LIBRARIES=%s %s -ticket %s -scriptURL \"https://assetgame.roblox.com/game/PlaceLauncher.ashx?request=RequestGame&placeId=%s%s\"";
+    char cmd[1000];
+    char __gameid_param[100];
+    bzero(__gameid_param, 100);
+    if (serverid)
     {
-        csrf_token_start += strlen("x-csrf-token: ");
-        char* csrf_token_end = strchr(csrf_token_start, 0xd);
-        long csrf_token_length = (csrf_token_end - csrf_token_start);
-        csrf_token = malloc(csrf_token_length);
-        memcpy(csrf_token, csrf_token_start, csrf_token_length);
-        
-        printf("CSRF-TOKEN: [%s]\n", csrf_token);
-        bzero(cmd, sizeof(cmd));
-        bzero(response, sizeof(response));
-        sprintf(cmd, auth_ticket_cmd, cookie, csrf_token);
-        
-        char* auth_ticket_start = NULL;
-        
-        while (!auth_ticket_start)
+        sprintf(__gameid_param, "gameId=%s", serverid);
+    }
+    sprintf(cmd, place_launch_cmd, __LIBESP_DYLIB_PATH__,__ROBLOXPLAYER_PATH__, rbx_auth_ticket.UTF8String, placeid, __gameid_param);
+    system(cmd);
+}
+
+
+//This is for when we have a cheat running as a background thread, and want the RobloxCheats process to terminate if the RobloxPlayer process terminates, so the cheats aren't left hanging around.
+void rbx_run_robloxcheats_self_termination_thread(void)
+{
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+                   {
+        for (;;) { sleep(1); pid_t a[4096]; if (pids_by_name("RobloxPlayer", a) == 0) { exit(0); } }
+    });
+}
+
+//Update the offsets in memory using the offsets saved in the offsets.txt file. NOT to be confused with what find_object_offsets() and find_function_offsets() do!
+void update_all_offsets(char* offsets_file_path)
+{
+    struct stat buf;
+    if (stat(offsets_file_path, &buf) == 0)
+    {
+        long file_size = buf.st_size;
+        char* bytes = malloc(file_size);
+        FILE* fp = fopen(offsets_file_path, "r");
+        if (fp)
         {
-            pipe = popen(cmd, "r");
-            fgets(response, buffer_size, pipe);
-            pclose(pipe);
-            auth_ticket_start = strstr(response, "rbx-authentication-ticket: ");
+            fread(bytes, file_size, 1, fp);
+            //printf("%s\n", bytes);
+            char* __start1 = strstr(bytes, "int ");
+            while (__start1)
+            {
+                __start1 = strstr(__start1, "int ");
+                if (__start1)
+                {
+                    char* __end1 = strstr(__start1, " = ");
+                    if (__end1)
+                    {
+                        char* __offset_name = __start1 + strlen("int ");
+                        char offset_name[(__end1 - __offset_name) + 1];
+                        bzero(offset_name, sizeof(offset_name));
+                        memcpy(offset_name, __offset_name, (__end1 - __offset_name));
+                        
+                        int* data_ptr = dlsym(RTLD_DEFAULT, offset_name);
+                        
+                        if (data_ptr)
+                        {
+                            char* __start2 = __end1 + strlen(" = ");
+                            char* __end2 = strstr(__start2, ";");
+                            if (__end2)
+                            {
+                                char hexstr[(__end2 - __start2) + 1];
+                                bzero(hexstr, sizeof(hexstr));
+                                memcpy(hexstr, __start2, (__end2 - __start2));
+                                //printf("%p\n", (int)strtol(hexstr, NULL, 0));
+                                int new_value = (int)strtol(hexstr, NULL, 0);
+                                //printf("Updating '%s' to %p\n", offset_name, (void*)(long)new_value);
+                                *data_ptr = new_value;
+                            }
+                        }
+                        else
+                        {
+                            fprintf(stderr, "failed to locate symbol '%s' in this process\n", offset_name);
+                        }
+                    }
+                    __start1 = __end1;
+                }
+            }
         }
-        if (auth_ticket_start)
+        else
         {
-            auth_ticket_start += strlen("rbx-authentication-ticket: ");
-            char* auth_ticket_end = strchr(auth_ticket_start, 0xd);
-            long auth_ticket_length = (auth_ticket_end - auth_ticket_start);
-            auth_ticket = malloc(auth_ticket_length);
-            memcpy(auth_ticket, auth_ticket_start, auth_ticket_length);
-            printf("RBX-AUTH-TICKET: [%s]\n", auth_ticket);
-            bzero(cmd, sizeof(cmd));
-            sprintf(cmd, place_launch_cmd, __INJECTED_DYLIB_PATH__, auth_ticket, place_id);
-            free(csrf_token);
-            free(auth_ticket);
-            system(cmd);
+            fprintf(stderr, "failed to open file: '%s'\n", offsets_file_path);
         }
+        fclose(fp);
+        free(bytes);
+    }
+    else
+    {
+        fprintf(stderr, "failed to get info about file: '%s'\n", offsets_file_path);
     }
 }
 
 
-#include "Games/Those-Who-Remain.h"
 #include "Games/Flood-Escape-Classic.h"
 #include "Games/Phantom-Forces.h"
 #include "Games/Hack-Tests.h"
@@ -472,28 +546,54 @@ void rbx_launch_game(long place_id, char* cookie_file_path)
 #include "Games/Blox-Fruits.h"
 #include "Games/Jailbreak.h"
 #include "Games/Emergency-Response.h"
+#include "Games/Word-Bomb.h"
+
+
+//#define TESTING   //When you are in Xcode
 
 
 int main(int argc, char** argv)
 {
+    
+#ifndef TESTING
+    static char current_directory[PATH_MAX];
+    bzero(current_directory, sizeof(current_directory));
+    getcwd(current_directory, PATH_MAX);
+    
+    __CPUTHROTTLE_PATH__ = malloc(PATH_MAX);
+    __LIBESP_DYLIB_PATH__ = malloc(PATH_MAX);
+    __OFFSETS_TXT_PATH__ = malloc(PATH_MAX);
+    __COOKIE_TXT_PATH__ = malloc(PATH_MAX);
+    
+    sprintf(__LIBESP_DYLIB_PATH__, "%s%s", current_directory, "/libESP.dylib");
+    sprintf(__CPUTHROTTLE_PATH__, "%s%s", current_directory, "/Tools/cputhrottle_remake");
+    sprintf(__OFFSETS_TXT_PATH__, "%s%s", current_directory, "/Data/offsets.txt");
+    sprintf(__COOKIE_TXT_PATH__, "%s%s", current_directory, "/Data/cookie.txt");
+    
+#endif
+    
     kern_return_t kr;
     printf("RobloxCheats pid: %d\n", getpid());
     task_t task;
     pid_t pid_array[4096];
+    memset(pid_array, -1, sizeof(pid_array));
     int process_count = pids_by_name("RobloxPlayer", pid_array);
+    
     pid_t pid = pid_array[0]; //The most recent RobloxPlayer process.
     printf("RobloxPlayer pid: %d\n", pid);
-    printf("If using in Xcode, make sure both libESP.dylib and RobloxCheats are building for Intel\n");
+    printf("\nIf using in Xcode, make sure both libESP.dylib and RobloxCheats are building for Intel\n\n");
     kr = task_for_pid(mach_task_self_, pid, &task);
     if (kr != KERN_SUCCESS)
     {
         printf("%s%d\n", "failed to obtain task port for pid: ", pid);
         printf("%s\n", mach_error_string(kr));
+        printf("%s\n", "(Do you have SIP disabled?)");
     }
 
-    //We have to run the Blox Fruits Chest Farm from the Command Line, since whenever we launch Roblox from this process, Roblox becomes a child process.
-    if (argc == 2)
+    //We have to run the Blox Fruits Chest Farm from the Command Line, since whenever we launch Roblox from this process, Roblox becomes a child process, and the main thread of RobloxCheats kinda stops doing its own thing.
+    if (argc > 1)
     {
+        update_all_offsets(__OFFSETS_TXT_PATH__);
         if (strcmp(argv[1], "blox_fruits_chest_farm") == 0)
         {
             if (process_count > 0)
@@ -509,67 +609,72 @@ int main(int argc, char** argv)
                     sleep(20);
                     exit(0);
                 });
-                rbx_launch_game(2753915549, __COOKIE_TXT_PATH__); //blox fruits
+                rbx_launch_game(__COOKIE_TXT_PATH__, "2753915549", "");
             }
         }
+        if (strcmp(argv[1], "phantomforces") == 0)
+        {
+            rbx_run_robloxcheats_self_termination_thread();
+            phantom_forces_cheat(task);
+        }
+        if (strcmp(argv[1], "doors") == 0)
+        {
+            rbx_run_robloxcheats_self_termination_thread();
+            doors_cheat(task);
+        }
+        if (strcmp(argv[1], "arsenal") == 0)
+        {
+            rbx_run_robloxcheats_self_termination_thread();
+            arsenal_cheat(task);
+        }
+        if (strcmp(argv[1], "jailbreak") == 0)
+        {
+            rbx_run_robloxcheats_self_termination_thread();
+            jailbreak_cheat(task);
+        }
+        if (strcmp(argv[1], "find_function_offsets") == 0)
+        {
+            find_function_offsets(task);
+            exit(0);
+        }
+        if (strcmp(argv[1], "find_object_offsets") == 0)
+        {
+            if (argc > 2)
+            {
+                find_object_offsets(task, argv[2]);
+            }
+            else
+            {
+                fprintf(stderr, "error: lacking argument '%s'\n", "display_name");
+            }
+            exit(0);
+        }
+    }
+    else
+    {
+        printf("\nPlease provide an argument\n");
+        printf("List of arguments:\n");
+        printf("\tfind_object_offsets [display_name]\n");
+        printf("\tfind_function_offsets\n");
+        printf("\tblox_fruits_chest_farm\n");
+        printf("\tdoors\n");
+        printf("\tphantomforces\n");
+        printf("\tjailbreak\n");
+        printf("\tarsenal\n");
+        printf("ex.: ./RobloxCheats doors\n\n");
+#ifndef TESTING
+        exit(0);
+#endif
     }
     
     
-    //rbx_launch_game(292439477); //PF
-
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
-    {
-        //printf("%ld\n", blox_fruits_get_pure_enemy_name_length("Shanda [Lv. 475]", strlen("Shanda [Lv. 475]")));
-        /*vector3_t pos = {.x = -65, .y = 130, .z = -25};
-        vm_address_t game = rbx_find_game_address(task);
-        vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
-        vm_address_t players = rbx_instance_find_first_child_of_class(task, game, "Players");
-        vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
-        vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players, "Player");
-        vm_address_t map_model = rbx_instance_find_first_child(task, workspace, "Map");
-        vm_address_t enemies_folder = rbx_instance_find_first_child(task, workspace, "Enemies");
-        vm_address_t npcs_folder = rbx_instance_find_first_child(task, workspace, "NPCs");
-        vm_address_t playergui = rbx_instance_find_first_child_of_class(task, local_player, "PlayerGui");
-        vm_address_t maingui = rbx_instance_find_first_child(task, playergui, "Main");
-        vm_address_t questframe = rbx_instance_find_first_child(task, maingui, "Quest");
-        vm_address_t questframe_container = rbx_instance_find_first_child(task, questframe, "Container");
-        vm_address_t questtitle_frame = rbx_instance_find_first_child(task, questframe_container, "QuestTitle");
-        vm_address_t quest_title_textlabel = rbx_instance_find_first_child(task, questtitle_frame, "Title");
-        long quest_string_length = 0;
-        char* quest_string = rbx_textlabel_get_text(task, quest_title_textlabel, &quest_string_length);
-        printf("%s\n", quest_string);
-        rbx_print_descendants(task, blox_fruits_find_quest_giver(task, npcs_folder), 0, 0);
-        rbx_print_descendants(task, blox_fruits_find_first_alive_enemy(task, enemies_folder, quest_string, quest_string_length), 0, 0);*/
-        //rbx_print_descendants(task, questtitle_frame, 0, 2);
-        //printf("%s\n", rbx_textlabel_get_text(task, quest_title_textlabel, malloc(8)));
-        //blox_fruits_find_first_alive_enemy(task, enemies_folder, "", 1);
-        //printf("%p\n", printf);
-        //fly_test(task);
-        //blox_fruits_find_first_alive_enemy_of_lowest_level(task, enemies_folder, "");
-        //rbx_instance_for_each_descendant(task, workspace, bf_func);
-        
-        /*
-         [Model] Bandit Quest Giver (0x7f812dc95a90) (child count: 23)
-         */
-        //rbx_print_descendants(task, blox_fruits_find_quest_giver(task, npcs_folder), 0, 0);
-        //printf("%p\n", rbx_find_game_address(task));
-        //blox_fruits_chest_collect(task);
-        //blox_fruits_auto_farm(task);
-        //arsenal_cheat(task);
-        doors_cheat(task);
-        //flood_escape_classic_cheat(task);
-        //phantom_forces_cheat(task);
-        //find_object_offsets(task, "nezukoaooo64");
-        //fly_test(task);
-        //field_of_battle_collect_legendary_gem(task);
-        //field_of_battle_auto_farm(task);
-        //jailbreak_cheat(task);
-        //emergency_response_cheat(task);
-    });
+    //jailbreak_cheat(task);
     
+    
+    //Don't let the process exit if we do use cheats, since many of the cheats run in a background thread.
     for (;;)
     {
-        sleep(5);
+        sleep(10);
     }
     
     return 0;

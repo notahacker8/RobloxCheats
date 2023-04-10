@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0C55659028CD921700A4FB79 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C55658F28CD921700A4FB79 /* main.m */; };
+		0CA880EA29E23B48009C42F4 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CA880E929E23B48009C42F4 /* main.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -24,8 +24,11 @@
 
 /* Begin PBXFileReference section */
 		0C55658C28CD921700A4FB79 /* RobloxCheats */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = RobloxCheats; sourceTree = BUILT_PRODUCTS_DIR; };
-		0C55658F28CD921700A4FB79 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		0C55659628CD962600A4FB79 /* RobloxCheats.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RobloxCheats.entitlements; sourceTree = "<group>"; };
+		0C5D5C4629DE44AF009B5090 /* Memory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Memory.h; sourceTree = "<group>"; };
+		0C5D5C4829DE4839009B5090 /* ESP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ESP.h; sourceTree = "<group>"; };
+		0C5D5C5D29DF8D11009B5090 /* Requests.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Requests.h; sourceTree = "<group>"; };
+		0CA880E929E23B48009C42F4 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		0CB13B9C28D71FFD0030CDF0 /* Objects */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Objects; sourceTree = "<group>"; };
 		0CC2C83428D5827C0086456C /* Games */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Games; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -60,10 +63,13 @@
 		0C55658E28CD921700A4FB79 /* RobloxCheats */ = {
 			isa = PBXGroup;
 			children = (
+				0CA880E929E23B48009C42F4 /* main.m */,
 				0C55659628CD962600A4FB79 /* RobloxCheats.entitlements */,
+				0C5D5C4629DE44AF009B5090 /* Memory.h */,
+				0C5D5C4829DE4839009B5090 /* ESP.h */,
+				0C5D5C5D29DF8D11009B5090 /* Requests.h */,
 				0CB13B9C28D71FFD0030CDF0 /* Objects */,
 				0CC2C83428D5827C0086456C /* Games */,
-				0C55658F28CD921700A4FB79 /* main.m */,
 			);
 			path = RobloxCheats;
 			sourceTree = "<group>";
@@ -125,7 +131,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0C55659028CD921700A4FB79 /* main.m in Sources */,
+				0CA880EA29E23B48009C42F4 /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -22,3 +22,6 @@ char* rbx_textlabel_get_text(task_t task, vm_address_t textlabel, long* inout_le
     }
     return text;
 }
+
+
+

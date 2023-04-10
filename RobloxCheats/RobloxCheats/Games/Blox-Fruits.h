@@ -1,26 +1,4 @@
 
-/*
-void func(task_t task, vm_address_t instance)
-{
-    if (rbx_instance_is_a(task, instance, "Part") ||
-        rbx_instance_is_a(task, instance, "MeshPart") ||
-        rbx_instance_is_a(task, instance, "WedgePart") ||
-        rbx_instance_is_a(task, instance, "CornerWedgePart") ||
-        rbx_instance_is_a(task, instance, "TrussPart") ||
-        rbx_instance_is_a(task, instance, "SpawnLocation") ||
-        rbx_instance_is_a(task, instance, "Seat") ||
-        rbx_instance_is_a(task, instance, "VehicleSeat"))
-    {
-        rbx_basepart_set_cancollide(task, instance, false);
-    }
-}
-*/
-
-long blox_fruits_get_pure_enemy_name_length(char* name, int name_length)
-{
-    static char buf[2] = " [";
-    return (long)((char*)memmem(name, name_length, buf, 2) - name);
-}
 
 vm_address_t blox_fruits_find_first_fruit(task_t task, vm_address_t workspace)
 {
@@ -41,130 +19,16 @@ vm_address_t blox_fruits_find_first_fruit(task_t task, vm_address_t workspace)
     return fruit;
 }
 
-vm_address_t blox_fruits_find_quest_giver(task_t task, vm_address_t npcs_folder)
-{
-    vm_address_t quest_giver = 0;
-    long folder_child_count = 0;
-    rbx_child_t* folder_children = rbx_instance_get_children(task, npcs_folder, &folder_child_count);
-    for (long i = 0 ; i < folder_child_count ; i++)
-    {
-        vm_address_t character = folder_children[i].child_address;
-        vm_address_t head = rbx_instance_find_first_child(task, character, "Head");
-        vm_address_t questbbg = rbx_instance_find_first_child(task, head, "QuestBBG");
-        vm_address_t title = rbx_instance_find_first_child(task, questbbg, "Title");
-        
-        long title_string_length = 0;
-        char* title_string = rbx_textlabel_get_text(task, title, &title_string_length);
-        if (title_string)
-        {
-            if (strcmp(title_string, "QUEST") == 0)
-            {
-                quest_giver = character;
-            }
-            vm_deallocate(mach_task_self_, (vm_address_t)title_string, title_string_length);
-        }
-    }
-    return quest_giver;
-}
-
-
-vm_address_t blox_fruits_find_first_alive_enemy(task_t task,
-                                                vm_address_t enemies_folder,
-                                                char* quest_string,
-                                                long quest_string_length)
-{
-    long child_count = 0;
-    vm_address_t found_child = 0;
-    rbx_child_t* children = rbx_instance_get_children(task, enemies_folder, &child_count);
-    if (children)
-    {
-        for (long i = 0 ; i < child_count ; i++)
-        {
-            vm_address_t child = children[i].child_address;
-            if (child)
-            {
-                unsigned char name_len;
-                char* name = rbx_instance_get_name(task, child, &name_len);
-                if (name && name_len > 5)
-                {
-                    long pure_name_len = blox_fruits_get_pure_enemy_name_length(name, name_len);
-                    if (memmem(quest_string, quest_string_length, name, pure_name_len))
-                    {
-                        vm_address_t head = rbx_instance_find_first_child(task, child, "Head");
-                        if (head)
-                        {
-                            if (!rbx_instance_find_first_child_of_class(task, head, "ParticleEmitter"))
-                            {
-                                found_child = child;
-                                i = child_count;  //break the loop, without skipping the deallocating part.
-                            }
-                        }
-                    }
-                    vm_deallocate(mach_task_self_, (vm_address_t)name, name_len);
-                }
-            }
-        }
-        vm_deallocate(mach_task_self_, (vm_address_t)children, child_count * sizeof(rbx_child_t));
-    }
-    return found_child;
-}
-
-
-
-
-
-
-void blox_fruits_left_click(task_t task,
-                            vm_address_t load_address,
-                            vm_address_t input_queue_offset,
-                            vm_address_t input_queue_count_offset,
-                            vm_address_t input_queue_finished_offset,
-                            NSPoint point)
-{
-    static const int input_count = 3;
-    Input inputs[input_count];
-    
-    inputs[0] = (Input){.type = 0, .duration = 0, .window_index = 0, .x = point.x, .y = point.y};
-    inputs[1] = (Input){.type = 3, .duration = 10000, .window_index = 0, .x = point.x, .y = point.y};
-    inputs[2] = (Input){.type = 4, .duration = 0, .window_index = 0, .x = point.x, .y = point.y};
-    
-    char f = 0;
-    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
-    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
-    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, 1);
-    
-    wait_until_input_queue_finished(task, load_address + input_queue_finished_offset, 1000);
-}
-
-void blox_fruits_simple_keypress(task_t task,
-                                 vm_address_t load_address,
-                                 vm_address_t input_queue_offset,
-                                 vm_address_t input_queue_count_offset,
-                                 vm_address_t input_queue_finished_offset,
-                                 int keycode)
-{
-    static int input_count = 2;
-    Input inputs[input_count];
-    inputs[0] = (Input){.type = 1, .duration = 10000, .keycode = keycode, .window_index = 0};
-    inputs[1] = (Input){.type = 2, .duration = 0, .keycode = keycode, .window_index = 0};
-    
-    char f = 0;
-    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
-    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
-    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, 1);
-    
-    wait_until_input_queue_finished(task, load_address + input_queue_finished_offset, 1000);
-    
-}
 
 
 void blox_fruits_chest_collect(task_t task)
 {
     printf(" - BLOX FRUITS (CHEST & FRUIT COLLECT) - \n");
+    printf("Size of Roblox window needs to be as SMALL AS POSSIBLE for this to work!!!\n");
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
+    void* dlhandle = dlopen(__LIBESP_DYLIB_PATH__, RTLD_NOW);
     
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
+    vm_address_t s_load_address = task_get_image_address_by_path(mach_task_self_, __LIBESP_DYLIB_PATH__);
     
     vm_offset_t should_quit_offset = gdso(dlhandle, s_load_address, "SHOULD_QUIT");
     vm_offset_t input_queue_offset = gdso(dlhandle, s_load_address, "INPUT_QUEUE");
@@ -173,7 +37,7 @@ void blox_fruits_chest_collect(task_t task)
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
+    vm_address_t load_address =  task_get_image_address_by_path(task, __LIBESP_DYLIB_PATH__);
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
@@ -226,15 +90,17 @@ void blox_fruits_chest_collect(task_t task)
         if (!leaderboard_closed)
         {
             leaderboard_closed = true;
-            blox_fruits_simple_keypress(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, 48); //tab to close the leaderboard
+            send_simple_keypress(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, 48, 100000); //tab to close the leaderboard
         }
         //Enter the game
-        blox_fruits_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, fast_mode_button_xy);
-        blox_fruits_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, marines_team_button_xy);
+        send_mouse_move(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, fast_mode_button_xy);
+        send_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, fast_mode_button_xy, 10000);
+        send_mouse_move(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, marines_team_button_xy);
+        send_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, marines_team_button_xy, 10000);
         sleep(1);
     }
 
-    /*
+    
     for (;;)
     {
         vm_address_t chest = rbx_instance_find_first_child(task, workspace, "Chest3");
@@ -258,7 +124,6 @@ void blox_fruits_chest_collect(task_t task)
         }
         usleep(100000);
     }
-     */
  
     NSLog(@"Finished collecting chests.\n");
     for (;;)
@@ -272,17 +137,17 @@ void blox_fruits_chest_collect(task_t task)
         vm_address_t fruit_tool = rbx_instance_find_first_child_of_class(task, character, "Tool");
         if (fruit_tool)
         {
-            char b = false;
-            vm_write(task, fruit_tool + 0x365, (vm_offset_t)&b, 1);
+            rbx_tool_set_canbedropped(task, fruit_tool, false);
             
             sleep(1);
-            blox_fruits_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, store_fruit_button_xy);
+            send_mouse_move(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, store_fruit_button_xy);
+            send_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, store_fruit_button_xy, 100000);
             sleep(1);
-            blox_fruits_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, store_fruit_button_xy);
+            send_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, store_fruit_button_xy, 100000);
             sleep(1);
-            blox_fruits_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, store_fruit_button_xy);
+            send_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, store_fruit_button_xy, 100000);
             sleep(1);
-            blox_fruits_simple_keypress(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, 51); //delete to drop
+            send_simple_keypress(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, 51, 100000); //delete to drop
         }
         if (!fruit)
         {
@@ -295,4 +160,3 @@ void blox_fruits_chest_collect(task_t task)
     char sq = true;
     vm_write(task, load_address + should_quit_offset, (vm_offset_t)&sq, 1);
 }
-

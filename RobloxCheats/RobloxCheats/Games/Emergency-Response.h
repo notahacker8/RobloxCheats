@@ -5,9 +5,9 @@ void emergency_response_cheat(task_t task)
 {
     static mach_msg_type_number_t data_cnt;
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
+    void* dlhandle = dlopen(__LIBESP_DYLIB_PATH__, RTLD_NOW);
     
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
+    vm_address_t s_load_address = task_get_image_address_by_path(mach_task_self_, __LIBESP_DYLIB_PATH__);
     
     vm_offset_t keys_down_offset = gdso(dlhandle, s_load_address, "KEYS_DOWN");
     vm_offset_t left_mouse_down_offset = gdso(dlhandle, s_load_address, "LEFT_MOUSE_DOWN");
@@ -24,7 +24,7 @@ void emergency_response_cheat(task_t task)
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
+    vm_address_t load_address =  task_get_image_address_by_path(task, __LIBESP_DYLIB_PATH__);
     
     char esp_enabled = true;
     vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, 1);

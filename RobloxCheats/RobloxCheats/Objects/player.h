@@ -22,7 +22,7 @@ char* rbx_player_get_display_name(task_t task, vm_address_t player, char* inout_
     vm_address_t read_data;
     kern_return_t kr;
     
-    char name_length;
+    unsigned char name_length;
     vm_address_t name_address = player + RBX_PLAYER_DISPLAY_NAME_OFFSET;
     char* name = NULL;
     

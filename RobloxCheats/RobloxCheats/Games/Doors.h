@@ -6,17 +6,15 @@
 
 void doors_cheat(task_t task)
 {
-    static mach_msg_type_number_t data_cnt;
     printf("- DOORS (ESP) -\n");
     
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    void* dlhandle = dlopen(__LIBESP_DYLIB_PATH__, RTLD_NOW);
+    if (!dlhandle)
     {
-        for (;;) { pid_t a[4096]; if (pids_by_name("RobloxPlayer", a) == 0) { exit(0); } sleep(1); }
-    });
+        printf("%s\n", dlerror());
+    }
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
-    
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
+    vm_address_t s_load_address = task_get_image_address_by_path(mach_task_self_, __LIBESP_DYLIB_PATH__);
     
     vm_offset_t esp_count_offset = gdso(dlhandle, s_load_address, "ESP_COUNT");
     vm_offset_t esp_enabled_offset = gdso(dlhandle, s_load_address, "ESP_ENABLED");
@@ -30,14 +28,29 @@ void doors_cheat(task_t task)
     vm_offset_t esp_box_text_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_TEXT_ARRAY");
     vm_offset_t esp_box_border_width_array_offset = gdso(dlhandle, s_load_address, "ESP_BOX_BORDER_WIDTH_ARRAY");
     
+    vm_offset_t function_queue_offset = gdso(dlhandle, s_load_address, "FUNCTION_QUEUE");
+    vm_offset_t function_queue_count_offset = gdso(dlhandle, s_load_address, "FUNCTION_QUEUE_COUNT");
+    vm_offset_t function_queue_finished_offset = gdso(dlhandle, s_load_address, "FUNCTION_QUEUE_FINISHED");
+    vm_offset_t function_usleep_time_offset = gdso(dlhandle, s_load_address, "FUNCTION_USLEEP_TIME");
+    
+    
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
+    vm_address_t load_address =  task_get_image_address_by_path(task, __LIBESP_DYLIB_PATH__);
+    if (!load_address)
+    {
+        printf("Couldn't find libESP.dylib in task %d\n", task);
+        exit(0);
+    }
+    
+    vm_address_t task_base_address = task_get_image_address_by_path(task, __ROBLOXPLAYER_PATH__);
+    
+    vm_address_t humanoid_set_walkspeed_func = task_base_address + RBX_HUMANOID_WALKSPEED_SETTER_METHOD_OFFSET;
     
     char esp_enabled = true;
-    vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, 1);
+    vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, sizeof(char));
     int esp_count = MAX_ESP_COUNT;
-    vm_write(task, load_address + esp_count_offset, (vm_offset_t)&esp_count, 4);
+    vm_write(task, load_address + esp_count_offset, (vm_offset_t)&esp_count, sizeof(int));
     
     vm_address_t esp_box_hidden_array = load_address + esp_box_hidden_array_offset;
     vm_address_t esp_box_frame_array = load_address + esp_box_frame_array_offset;
@@ -48,6 +61,8 @@ void doors_cheat(task_t task)
     
     useconds_t esput = 1000;
     vm_write(task, load_address + esp_usleep_time_offset, (vm_address_t)&esput, sizeof(useconds_t));
+    useconds_t fut = 10000;
+    vm_write(task, load_address + function_usleep_time_offset, (vm_address_t)&fut, sizeof(useconds_t));
     
     
     static float window_w;
@@ -56,6 +71,9 @@ void doors_cheat(task_t task)
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
     vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
+    vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
+    static vm_address_t character = 0;
+    static vm_address_t humanoid = 0;
     vm_address_t lighting = rbx_instance_find_first_child_of_class(task, game, "Lighting");
     vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
     
@@ -75,31 +93,42 @@ void doors_cheat(task_t task)
     static vm_address_t esp_parts[MAX_ESP_COUNT];
     static ESP_Color esp_colors[MAX_ESP_COUNT];
     
-    static char current_event[100];
-    static char* current_event_format = "";
-    static char current_event_exists = false;
+    static char current_event[MAX_ESP_TEXT_LENGTH * 4];
     
-    static vm_address_t monster_part = 0;
-    static float distance_from_monster = 0.0f;
+    static int monster_count = 0;
+    static char monster_names[MAX_ESP_COUNT][MAX_ESP_TEXT_LENGTH];
+    static vm_address_t monster_parts[MAX_ESP_COUNT];
     
     static useconds_t object_search_usleep_time = 100000;
+    
+    static vm_address_t seekmoving = 0;
 
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
         {
-            if (current_event_exists)
+            if (monster_count > 0)
             {
-                if (monster_part)
+                //printf("%d\n", monster_count);
+                char __current_event[sizeof(current_event)];
+                bzero(__current_event, sizeof(current_event));
+                for (int i = 0 ; i < monster_count ; i++)
                 {
+                    //printf("%s\n", monster_names[i]);
+                    vm_address_t part = monster_parts[i];
                     rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                    rbx_cframe_t part_cframe = rbx_basepart_get_cframe(task, monster_part);
-                    distance_from_monster = vector3_dist_dif(camera_cframe.pos, part_cframe.pos);
-                    sprintf(current_event, current_event_format, distance_from_monster);
+                    rbx_cframe_t part_cframe = rbx_basepart_get_cframe(task, part);
+                    float dist = vector3_dist_dif(camera_cframe.pos, part_cframe.pos);
+                    if (dist < 999)
+                    {
+                        sprintf(__current_event + strlen(__current_event), "%s [%.0f] ", monster_names[i], dist);
+                    }
                 }
+                //printf("%s\n", current_event);
+                memcpy(current_event, __current_event, sizeof(__current_event));
             }
-            usleep(10000);
+            usleep(4000);
         }
     });
     
@@ -107,44 +136,43 @@ void doors_cheat(task_t task)
     {
         for (;;)
         {
+            character = rbx_player_get_character(task, local_player);
+            humanoid = rbx_instance_find_first_child_of_class(task, character, "Humanoid");
             camera_field_of_view = rbx_camera_get_field_of_view(task, camera);
             window_w = ((int_float_u)((int)vm_read_4byte_value(task, load_address + window_w_offset))).f;
             window_h = ((int_float_u)((int)vm_read_4byte_value(task, load_address + window_h_offset))).f;
             
             int esp_object_index = 0;
+            int __monster_count = 0;
             
             vm_address_t rushmoving = rbx_instance_find_first_child(task, workspace, "RushMoving");
             vm_address_t ambushmoving = rbx_instance_find_first_child(task, workspace, "AmbushMoving");
-            vm_address_t seekmoving = rbx_instance_find_first_child(task, workspace, "SeekMoving");
+            seekmoving = rbx_instance_find_first_child(task, workspace, "SeekMoving");
 
             if (rushmoving)
             {
-                //rbx_print_descendants(task, rushmoving, 0, 1);
-                monster_part = rbx_instance_find_first_child_of_class(task, rushmoving, "Part");
-                current_event_format = "RUSH INCOMING - [%.0f]";
-                current_event_exists = true;
+                vm_address_t monster_part = rbx_instance_find_first_child_of_class(task, rushmoving, "Part");
+                monster_parts[__monster_count] = monster_part;
+                strcpy(monster_names[__monster_count], "Rush");
+                __monster_count++;
+                
+                esp_parts[esp_object_index] = monster_part;
+                esp_colors[esp_object_index] = monster_esp_color;
+                esp_object_index++;
             }
             if (ambushmoving)
             {
-                monster_part = rbx_instance_find_first_child_of_class(task, ambushmoving, "Part");
-                current_event_format = "AMBUSH INCOMING - [%.0f]";
-                current_event_exists = true;
+                vm_address_t monster_part = rbx_instance_find_first_child_of_class(task, ambushmoving, "Part");
+                monster_parts[__monster_count] = monster_part;
+                strcpy(monster_names[__monster_count], "Ambush");
+                __monster_count++;
+                
+                esp_parts[esp_object_index] = monster_part;
+                esp_colors[esp_object_index] = monster_esp_color;
+                esp_object_index++;
             }
-            if (!rushmoving && !ambushmoving)
-            {
-                distance_from_monster = 0.0f;
-                current_event_exists = false;
-                monster_part = 0;
-            }
-            if (monster_part)
-            {
-                if (distance_from_monster < 500)
-                {
-                    esp_parts[esp_object_index] = monster_part;
-                    esp_colors[esp_object_index] = monster_esp_color;
-                    esp_object_index++;
-                }
-            }
+            
+            monster_count = __monster_count;
             
             vm_address_t current_rooms_folder = rbx_instance_find_first_child(task, workspace, "CurrentRooms");
             vm_address_t final_room = rbx_instance_find_first_child(task, current_rooms_folder, "100");
@@ -314,7 +342,7 @@ void doors_cheat(task_t task)
                 }
             }
             esp_object_count = esp_object_index;
-            bzero((char*)esp_parts + (esp_object_count * 8), sizeof(esp_parts) - (esp_object_count * 8));
+            bzero((char*)esp_parts + (esp_object_count * sizeof(void*)), sizeof(esp_parts) - (esp_object_count * sizeof(void*)));
             usleep(object_search_usleep_time);
         }
     });
@@ -357,21 +385,18 @@ void doors_cheat(task_t task)
             {
                 usleep(esput);
             }
-            if (current_event_exists)
+            if (monster_count > 0)
             {
-                //Draw the message
-                if (distance_from_monster < 500) //The monster is very far away when it's a false positive
-                {
-                    ESP_Frame frame = (ESP_Frame){.x = 0, . y = window_h - 200, .w = window_w, .h = 40};
-                    char hidden = false;
-                    float border_width = 0;
-                    vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)&hidden, 1);
-                    vm_write(task, esp_box_text_array + (esp_index * MAX_ESP_TEXT_LENGTH), (vm_address_t)current_event, MAX_ESP_TEXT_LENGTH);
-                    vm_write(task, esp_box_frame_array + (esp_index * sizeof(ESP_Frame)), (vm_address_t)&frame, sizeof(ESP_Frame));
-                    vm_write(task, esp_box_color_array + (esp_index * sizeof(ESP_Color)), (vm_address_t)&monster_esp_color, sizeof(ESP_Color));
-                    vm_write(task, esp_box_border_width_array + (esp_index * 4), (vm_address_t)&border_width, 4);
-                    esp_index++;
-                }
+                //printf("|%s|\n", current_event);
+                ESP_Frame frame = (ESP_Frame){.x = 0, . y = window_h - 200, .w = window_w, .h = 40};
+                char hidden = false;
+                float border_width = 0;
+                vm_write(task, esp_box_hidden_array + esp_index, (vm_address_t)&hidden, sizeof(char));
+                vm_write(task, esp_box_text_array + (esp_index * MAX_ESP_TEXT_LENGTH), (vm_address_t)current_event, MAX_ESP_TEXT_LENGTH);
+                vm_write(task, esp_box_frame_array + (esp_index * sizeof(ESP_Frame)), (vm_address_t)&frame, sizeof(ESP_Frame));
+                vm_write(task, esp_box_color_array + (esp_index * sizeof(ESP_Color)), (vm_address_t)&monster_esp_color, sizeof(ESP_Color));
+                vm_write(task, esp_box_border_width_array + (esp_index * sizeof(float)), (vm_address_t)&border_width, sizeof(float));
+                esp_index++;
             }
             char hiddens[MAX_ESP_COUNT - esp_index];
             memset(hiddens, 1, sizeof(hiddens));
@@ -384,8 +409,33 @@ void doors_cheat(task_t task)
         for (;;)
         {
             vm_write(task, lighting + RBX_LIGHTING_AMBIENT_OFFSET, (vm_offset_t)&new_aimbient, sizeof(vector3_t));
-            //vm_write(task, lighting + RBX_LIGHTING_BRIGHTNESS_OFFSET, (vm_offset_t)&new_brightness, 4);
             usleep(50);
+        }
+    });
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
+    {
+        for (;;)
+        {
+            if (humanoid)
+            {
+                float speed = 19.0f;
+                if (seekmoving)
+                {
+                    speed = 24.0f;
+                }
+                RemoteFunctionCall remote_call = {.type = 7, .address = humanoid_set_walkspeed_func, .finished = false};
+                ((long*)remote_call.arguments)[0] = humanoid;
+                ((float*)remote_call.arguments + 8)[0] = speed;
+                
+                int count = 1;
+                char finished = 0;
+                vm_write(task, load_address + function_queue_offset, (vm_address_t)&remote_call, sizeof(RemoteFunctionCall));
+                vm_write(task, load_address + function_queue_count_offset, (vm_address_t)&count, sizeof(int));
+                vm_write(task, load_address + function_queue_finished_offset, (vm_address_t)&finished, sizeof(char));
+                wait_until_queue_finished(task, load_address + function_queue_finished_offset, 1000);
+            }
+            usleep(10000);
         }
     });
 

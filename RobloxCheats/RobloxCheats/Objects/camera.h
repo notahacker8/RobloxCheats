@@ -1,7 +1,5 @@
 
 
-#define __RBX_TOTAL_Y_GUI_INSET 76
-#define __RBX_TOTAL_X_GUI_INSET 0
 
 //Not an in-game struct, but something the World-to-Screen function will return.
 typedef struct
@@ -22,7 +20,7 @@ vm_address_t rbx_camera_get_camera_subject(task_t task, vm_address_t camera)
 
 void rbx_camera_set_camera_subject(task_t task, vm_address_t camera, vm_address_t new_subject)
 {
-    vm_write(task, camera + RBX_CAMERA_CAMERA_SUBJECT_OFFSET, (vm_offset_t)&new_subject, 8);
+    vm_write(task, camera + RBX_CAMERA_CAMERA_SUBJECT_OFFSET, (vm_offset_t)&new_subject, sizeof(void*));
 }
 
 rbx_cframe_t rbx_camera_get_cframe(task_t task, vm_address_t camera)
@@ -32,15 +30,18 @@ rbx_cframe_t rbx_camera_get_cframe(task_t task, vm_address_t camera)
 
 void rbx_camera_set_cframe(task_t task, vm_address_t camera, rbx_cframe_t* cf)
 {
-    //Camera focus is right after the CFrame.
     vm_write(task, camera + RBX_CAMERA_CFRAME_0_OFFSET, (vm_address_t)cf, sizeof(rbx_cframe_t));
     return;
 }
 
+
+
 rbx_cframe_t rbx_camera_get_focus(task_t task, vm_address_t camera)
 {
+    //Camera focus is right after the CFrame.
     return vm_read_rbx_cframe_value(task, camera + RBX_CAMERA_CFRAME_0_OFFSET + sizeof(rbx_cframe_t));
 }
+
 
 
 float rbx_camera_get_field_of_view(task_t task, vm_address_t camera)
@@ -53,8 +54,6 @@ void rbx_camera_set_field_of_view(task_t task, vm_address_t camera, float new_va
     new_value = new_value / (180/PI);
     vm_write(task, camera + RBX_CAMERA_FOV_OFFSET, (vm_address_t)&new_value, 4);
 }
-
-
 
 
 

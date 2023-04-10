@@ -7,10 +7,9 @@ char* rbx_meshpart_get_meshid(task_t task, vm_address_t meshpart)
 {
     static mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
-    kern_return_t kr = 0;
     vm_address_t str_ptr = 0;
     char* meshid = NULL;
-    vm_read(task, meshpart + 0x1f0, 8, &read_data, &data_cnt);
+    kern_return_t kr = vm_read(task, meshpart + RBX_MESHPART_MESHID_OFFSET, 8, &read_data, &data_cnt);
     if (kr == KERN_SUCCESS)
     {
         str_ptr = *(vm_address_t*)read_data;
@@ -24,10 +23,9 @@ char* rbx_meshpart_get_textureid(task_t task, vm_address_t meshpart)
 {
     static mach_msg_type_number_t data_cnt;
     vm_address_t read_data;
-    kern_return_t kr = 0;
     vm_address_t str_ptr = 0;
     char* meshid = NULL;
-    vm_read(task, meshpart + 0x1f0 + 0x18, 8, &read_data, &data_cnt);
+    kern_return_t kr = vm_read(task, meshpart + RBX_MESHPART_TEXTUREID_OFFSET, 8, &read_data, &data_cnt);
     if (kr == KERN_SUCCESS)
     {
         str_ptr = *(vm_address_t*)read_data;

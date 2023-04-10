@@ -1,19 +1,24 @@
 
 
+
+
 #define RBX_FOB_ALL_LEGENDARY_FILTER if (gv > 31)
 #define RBX_FOB_BAD_LEGENDARY_FILTER if (gv == 35 || gv == 36) //Spirit Shard and Dragon Bone go brrrrrr..
 #define RBX_FOB_GOOD_LEGENDARY_FILTER if (gv > 31 && gv != 35 && gv != 36)
 
 
 
+
+
+#pragma mark - Gem Collector -
+
+
+
+
+
 void field_of_battle_collect_legendary_gem(task_t task)
 {
     printf("- FIELD OF BATTLE (LEGENDARY GEM COLLECTOR) -\n");
-    
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
-    {
-        for (;;) { pid_t a[4096]; if (pids_by_name("RobloxPlayer", a) == 0) { exit(0); } sleep(1); }
-    });
 
     vm_address_t game = rbx_find_game_address(task);
     vm_address_t workspace = rbx_instance_find_first_child_of_class(task, game, "Workspace");
@@ -139,73 +144,27 @@ void field_of_battle_collect_legendary_gem(task_t task)
     
 }
 
-void fob_equip_tool(task_t task,
-                    vm_address_t load_address,
-                    vm_address_t input_queue_offset,
-                    vm_address_t input_queue_count_offset,
-                    vm_address_t input_queue_finished_offset,
-                    int keycode)
-{
-    static int input_count = 2;
-    Input inputs[input_count];
-    inputs[0].type = 1;
-    inputs[0].duration = 10000;
-    inputs[0].keycode = keycode;
-    inputs[0].window_index = 0;
-    
-    inputs[1].type = 2;
-    inputs[1].duration = 0;
-    inputs[1].keycode = keycode;
-    inputs[1].window_index = 0;
-    
-    char f = 0;
-    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
-    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
-    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, 1);
-    
-    wait_until_input_queue_finished(task, load_address + input_queue_finished_offset, 1000);
-    
-}
 
-void fob_click(task_t task,
-               vm_address_t load_address,
-               vm_address_t input_queue_offset,
-               vm_address_t input_queue_count_offset,
-               vm_address_t input_queue_finished_offset)
-{
-    static int input_count = 2;
-    Input inputs[input_count];
-    
-    inputs[0].type = 3;
-    inputs[0].duration = 10000;
-    inputs[0].window_index = 0;
-    inputs[0].x = 200;
-    inputs[0].y = 200;
-    
-    inputs[1].type = 4;
-    inputs[1].duration = 0;
-    inputs[1].window_index = 0;
-    inputs[1].x = 200;
-    inputs[1].y = 200;
-    
-    char f = 0;
-    vm_write(task, load_address + input_queue_offset, (vm_address_t)inputs, (int)sizeof(inputs));
-    vm_write(task, load_address + input_queue_count_offset, (vm_address_t)&input_count, sizeof(int));
-    vm_write(task, load_address + input_queue_finished_offset, (vm_address_t)&f, 1);
-    
-    wait_until_input_queue_finished(task, load_address + input_queue_finished_offset, 1000);
-}
 
-#define RBX_FOB_RED_NOSED_FILTER_HEADER                     char npc_namelen; char* npc_name = rbx_instance_get_name(task, n, &npc_namelen); if (npc_name) { if (strstr(npc_name, "Red Nose")) {
-#define RBX_FOB_RED_NOSED_FILTER_ENDER } vm_deallocate(mach_task_self_, (vm_address_t)npc_name, npc_namelen); }
+
+
+
+#pragma mark - Autofarm -
+
+
+
 
 
 void field_of_battle_auto_farm(task_t task)
 {
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
+    void* dlhandle = dlopen(__LIBESP_DYLIB_PATH__, RTLD_NOW);
+    if (!dlhandle)
+    {
+        printf("%s\n", dlerror());
+    }
     
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
+    vm_address_t s_load_address = task_get_image_address_by_path(mach_task_self_, __LIBESP_DYLIB_PATH__);
     
     vm_offset_t input_usleep_time_offset = gdso(dlhandle, s_load_address, "INPUT_USLEEP_TIME");
     vm_offset_t input_queue_offset = gdso(dlhandle, s_load_address, "INPUT_QUEUE");
@@ -214,8 +173,14 @@ void field_of_battle_auto_farm(task_t task)
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
-    int iut = 100000;
+    vm_address_t load_address =  task_get_image_address_by_path(task, __LIBESP_DYLIB_PATH__);
+    if (!load_address)
+    {
+        printf("Couldn't find libESP.dylib in task %d\n", task);
+        exit(0);
+    }
+    
+    useconds_t iut = 100000;
     vm_write(task, load_address + input_usleep_time_offset, (vm_address_t)&iut, sizeof(useconds_t));
     
     printf("- FIELD OF BATTLE (AUTO FARM) -\n");
@@ -251,12 +216,6 @@ void field_of_battle_auto_farm(task_t task)
     static rbx_cframe_t npc_cf;
     static vector3_t npc_pos;
     
-    static rbx_cframe_t tool_grip;
-    tool_grip.r0 = 1;
-    tool_grip.r11 = 1;
-    tool_grip.r22 = 1;
-    tool_grip.pos.y = y_offset;
-    
     static char npc_exists = false;
     static char safe_to_attack = true; //Lag switch-kick prevention
     static char is_going_afk = false;
@@ -271,6 +230,7 @@ void field_of_battle_auto_farm(task_t task)
             char_tool = rbx_instance_find_first_child_of_class(task, my_char, "Tool");
             delay1numbervalue = rbx_instance_find_first_child(task, char_tool, "Delay1");
             delay1numbervalue_value = rbx_numbervalue_get_value(task, delay1numbervalue);
+            
             if (delay1numbervalue)
             {
                 target_switch_delay_usleep_time = (useconds_t)(delay1numbervalue_value * 1000000.0f);
@@ -302,7 +262,6 @@ void field_of_battle_auto_farm(task_t task)
                     vm_address_t n = c[i].child_address;
                     vm_address_t isnpc = rbx_instance_find_first_child(task, n, "IsNpc");
                     bool isnpc_value = rbx_boolvalue_get_value(task, isnpc);
-                    //FOB_RED_NOSED_FILTER_HEADER
                     if (isnpc && isnpc_value == true)
                     {
                         vm_address_t h = rbx_instance_find_first_child(task, n, "Head");
@@ -325,7 +284,6 @@ void field_of_battle_auto_farm(task_t task)
                             //i = l; //Get the general first
                         }
                     }
-                    //FOB_RED_NOSED_FILTER_ENDER
                 }
             }
             vm_deallocate(mach_task_self_, (vm_address_t)c, l * sizeof(rbx_child_t));
@@ -394,14 +352,14 @@ void field_of_battle_auto_farm(task_t task)
                 is_going_afk = false;
                 if (char_tool == 0)
                 {
-                    ///https://eastmanreference.com/complete-list-of-applescript-key-codes
-                    ///I press 5 to equip my sword (Heaven's Edge)
-                    fob_equip_tool(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, 23);
+                    //I press 5 to equip my sword (Heaven's Edge)
+                    send_simple_keypress(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, keycode_for_character('5'), 100000);
                 }
                 
                 if (npc_exists && safe_to_attack) //So we don't hit anything on accident (to prevent getting caught "lag switching")
                 {
-                    fob_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset);
+                    send_left_click(task, load_address, input_queue_offset, input_queue_count_offset, input_queue_finished_offset, (NSPoint){.x = 200, .y = 200}, 10000);
+                    
                     for (int i = 0 ; i < 50000 ; i++)
                     {
                         vm_write(task, handle_cframe_address, (vm_offset_t)&npc_cf, sizeof(npc_cf));
@@ -426,13 +384,97 @@ void field_of_battle_auto_farm(task_t task)
                 int p = -1;
                 pid_for_task(task, &p);
                 sprintf(cmd, "%s %d %f", __CPUTHROTTLE_PATH__, p, 50.0f);
-                system(cmd);
+                //system(cmd);
             }
             sleep(3);
         }
     });
     
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

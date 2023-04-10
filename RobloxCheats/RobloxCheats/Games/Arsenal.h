@@ -5,11 +5,13 @@ void arsenal_cheat(task_t task)
 {
     printf("- ARSENAL (AIMBOT + ESP) -\n");
     
-    static mach_msg_type_number_t data_cnt;
+    void* dlhandle = dlopen(__LIBESP_DYLIB_PATH__, RTLD_NOW);
+    if (!dlhandle)
+    {
+        printf("failed to dlopen()\n");
+    }
     
-    void* dlhandle = dlopen(__INJECTED_DYLIB_PATH__, RTLD_NOW);
-    
-    vm_address_t s_load_address = get_image_address(mach_task_self_, __INJECTED_DYLIB_PATH__);
+    vm_address_t s_load_address = task_get_image_address_by_path(mach_task_self_, __LIBESP_DYLIB_PATH__);
     
     vm_offset_t left_mouse_down_offset = gdso(dlhandle, s_load_address, "LEFT_MOUSE_DOWN");
     vm_offset_t esp_enabled_offset = gdso(dlhandle, s_load_address, "ESP_ENABLED");
@@ -25,12 +27,17 @@ void arsenal_cheat(task_t task)
     
     dlclose(dlhandle);
     
-    vm_address_t load_address =  get_image_address(task, __INJECTED_DYLIB_PATH__);
+    vm_address_t load_address = task_get_image_address_by_path(task, __LIBESP_DYLIB_PATH__);
+    if (!load_address)
+    {
+        printf("Couldn't find libESP.dylib in task %d\n", task);
+        exit(0);
+    }
     
     char esp_enabled = true;
-    vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, 1);
+    vm_write(task, load_address + esp_enabled_offset, (vm_offset_t)&esp_enabled, sizeof(char));
     int esp_count = RBX_ARSENAL_MAX_PLAYER_COUNT;
-    vm_write(task, load_address + esp_count_offset, (vm_offset_t)&esp_count, 4);
+    vm_write(task, load_address + esp_count_offset, (vm_offset_t)&esp_count, sizeof(int));
     
     vm_address_t esp_box_hidden_array = load_address + esp_box_hidden_array_offset;
     vm_address_t esp_box_frame_array = load_address + esp_box_frame_array_offset;
@@ -52,13 +59,17 @@ void arsenal_cheat(task_t task)
     vm_address_t player_gui = rbx_instance_find_first_child_of_class(task, local_player, "PlayerGui");
     vm_address_t nametags_folder = rbx_instance_find_first_child(task, player_gui, "Nametags");
     
+    //rbx_print_descendants(task, local_player, 0, 1);
+    
     static vm_address_t enemy_heads[RBX_ARSENAL_MAX_PLAYER_COUNT];
     static long enemy_count = 0;
     
     static vm_address_t closest_enemy_head;
     static char closest_enemy_exists = false;
-    static const float max_delta_ratio = 0.135;
-    static const float interpolation = 15;
+    
+    static const float max_dist = 500;
+    static const float max_delta_dist = 7.5;
+    static const float interpolation = 5;
     
     static ESP_Color esp_color;
     esp_color.r = 0;
@@ -78,8 +89,8 @@ void arsenal_cheat(task_t task)
             window_h = ((int_float_u)((int)vm_read_4byte_value(task, load_address + window_h_offset))).f;
             
             bool __cee = false;
-            float old_dist = 500;
-            float old_delta_ratio = max_delta_ratio;
+            float old_dist = max_dist;
+            float old_delta_dist = max_delta_dist;
             int enemy_head_index = 0;
             
             long player_count = 0;
@@ -112,16 +123,17 @@ void arsenal_cheat(task_t task)
                                             enemy_heads[enemy_head_index++] = head;
                                             rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, head);
                                             rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                                            const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
-                                            const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
-                                            const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                                            vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
+                                            float dist;
+                                            const float depth = rbx_get_camera_relative_depth(camera_cframe, head_cframe.pos, &dist);
+                                            const vector3_t f_offset = vector3_mul_num(camera_look_vector, depth);
                                             const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
                                             const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
-                                            const float delta_ratio = (delta_dist/dist);
-                                            if (old_dist > dist && old_delta_ratio > delta_ratio)
+                                            if (old_dist > dist && old_delta_dist > delta_dist)
                                             {
                                                 __cee = true;
-                                                old_dist = dist;
+                                                //old_dist = dist;
+                                                old_delta_dist = delta_dist;
                                                 closest_enemy_head = head;
                                             }
                                         }
@@ -136,7 +148,7 @@ void arsenal_cheat(task_t task)
             }
             closest_enemy_exists = __cee;
             enemy_count = enemy_head_index;
-            usleep(300000);
+            usleep(200000);
         }
     });
     
@@ -151,16 +163,16 @@ void arsenal_cheat(task_t task)
                 if (lmd)
                 {
                     trigger_usleep_time = 3;
+                    
                     rbx_cframe_t head_cframe = rbx_basepart_get_cframe(task, closest_enemy_head);
                     rbx_cframe_t camera_cframe = rbx_camera_get_cframe(task, camera);
-                    const vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
-                    const float dist = vector3_dist_dif(head_cframe.pos, camera_cframe.pos);
-                    const vector3_t f_offset = vector3_mul_num(camera_look_vector, dist);
+                    vector3_t camera_look_vector = rbx_cframe_get_look_vector(camera_cframe);
+                    float dist;
+                    const float depth = rbx_get_camera_relative_depth(camera_cframe, head_cframe.pos, &dist);
+                    const vector3_t f_offset = vector3_mul_num(camera_look_vector, depth);
                     const vector3_t f_pos = vector3_add(camera_cframe.pos, f_offset);
                     const float delta_dist = vector3_dist_dif(f_pos, head_cframe.pos);
-                    const float delta_ratio = (delta_dist/dist);
-                    
-                    if (max_delta_ratio > delta_ratio)
+                    if (max_delta_dist > delta_dist)
                     {
                         vector3_t new_look_vector = vector3_unit(head_cframe.pos, camera_cframe.pos);
                         vector3_t inc_look_vector = vector3_div_num(vector3_sub(new_look_vector, camera_look_vector), interpolation);
@@ -169,6 +181,7 @@ void arsenal_cheat(task_t task)
                         camera_cframe.r22 += -inc_look_vector.z;
                         rbx_camera_set_cframe(task, camera, &camera_cframe);
                     }
+                    
                 }
                 else
                 {

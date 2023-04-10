@@ -30,6 +30,7 @@ vector3_t rbx_cframe_get_right_vector(const rbx_cframe_t cframe)
     return (vector3_t){.x = cframe.r0, .y = cframe.r1, .z = cframe.r2};
 }
 
+
 rbx_cframe_t rbx_cframe_from_pos_and_look_vector(const vector3_t pos,
                                                  const vector3_t lv)
 {

@@ -52,11 +52,16 @@ typedef struct
 }
 RemoteFunctionCall;
 
-
 typedef void r_void_p_void_f(void);
+
 typedef void r_void_p_long_f(long);
+typedef void r_void_p_long_long_f(long, long);
+typedef void r_void_p_long_long_long_f(long, long, long);
+typedef void r_void_p_long_long_long_long_f(long, long, long, long);
+typedef void r_void_p_long_long_long_long_long_f(long, long, long, long, long);
+typedef void r_void_p_long_long_long_long_long_long_f(long, long, long, long, long, long);
 
-
+typedef void r_void_p_long_float_f(long, float);
 
 
 
@@ -109,24 +114,16 @@ void sendLeftMouseUp(int window_index, CGPoint point)
 unsigned char ESP_ENABLED;
 extern unsigned char ESP_ENABLED;
 
-unsigned char AIMBOT_ENABLED;
-extern unsigned char AIMBOT_ENABLED;
-
 unsigned char ESP_ALLOCATED;
 extern unsigned char ESP_ALLOCATED;
 
 
 #define MAX_ESP_COUNT 200
-#define MAX_INPUT_COUNT 100
-//#define MAX_FUNCTION_COUNT 100
-#define MAX_ESP_TEXT_LENGTH 50
+#define MAX_INPUT_COUNT 200
+#define MAX_FUNCTION_COUNT 200
+#define MAX_ESP_TEXT_LENGTH 200
 
 
-float AIMBOT_X;
-extern float AIMBOT_X;
-
-float AIMBOT_Y;
-extern float AIMBOT_Y;
 
 float WINDOW_W;
 extern float WINDOW_W;
@@ -176,16 +173,12 @@ extern useconds_t ESP_USLEEP_TIME;
 useconds_t REFRESH_USLEEP_TIME = 5000000;
 extern useconds_t REFRESH_USLEEP_TIME;
 
-useconds_t AIMBOT_USLEEP_TIME = 300000;
-extern useconds_t AIMBOT_USLEEP_TIME;
-
 useconds_t INPUT_USLEEP_TIME = 300000;
 extern useconds_t INPUT_USLEEP_TIME;
 
-/*
 useconds_t FUNCTION_USLEEP_TIME = 300000;
 extern useconds_t FUNCTION_USLEEP_TIME;
-*/
+
 
 
 
@@ -200,7 +193,7 @@ Input INPUT_QUEUE[MAX_INPUT_COUNT];
 extern Input INPUT_QUEUE[MAX_INPUT_COUNT];
 
 
-/*
+
 unsigned char FUNCTION_QUEUE_FINISHED = true;
 extern unsigned char FUNCTION_QUEUE_FINISHED;
 
@@ -209,26 +202,8 @@ extern unsigned int FUNCTION_QUEUE_COUNT;
 
 RemoteFunctionCall FUNCTION_QUEUE[MAX_INPUT_COUNT];
 extern RemoteFunctionCall FUNCTION_INPUT_QUEUE[MAX_INPUT_COUNT];
-*/
 
-void print_subviews(NSView* view, int tab_index)
-{
-    NSString* str = [NSString stringWithFormat:@"%@", view];
-    for (int i = 0 ; i < tab_index ; i++)
-    {
-        printf("\t");
-    }
-    printf("%s\n", [str cStringUsingEncoding:NSASCIIStringEncoding]);
-    NSArray* subviews = [view subviews];
-    for (int i = 0 ; i < subviews.count ; i++)
-    {
-        for (int x = 0 ; x < tab_index + 1 ; x++)
-        {
-            printf("\t");
-        }
-        print_subviews(subviews[i], tab_index + 1);
-    }
-}
+
 
 
 
@@ -251,6 +226,7 @@ void initialize(void)
     [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent * _Nullable(NSEvent * _Nonnull event) {
         char key_ascii = [event.characters cStringUsingEncoding:NSNonLossyASCIIStringEncoding][0];
         ((char*)(KEYS_DOWN + key_ascii))[0] = true;
+        //printf("keycodes['%s'] = %d;\n", [event.characters cStringUsingEncoding:NSNonLossyASCIIStringEncoding], event.keyCode);
         printf("keycode: %d\n", (int)event.keyCode);
         return event;
     }];
@@ -310,7 +286,7 @@ void initialize(void)
                     bzero(ESP_BOX_TEXT_ARRAY, sizeof(ESP_BOX_TEXT_ARRAY));
                 });
             }
-            if (AIMBOT_ENABLED == true || ESP_ENABLED == true || INPUT_QUEUE_FINISHED == false)
+            if (ESP_ENABLED == true)
             {
                 dispatch_async(dispatch_get_main_queue(), ^
                                {
@@ -378,7 +354,6 @@ void initialize(void)
             usleep(INPUT_USLEEP_TIME);
             if (NSApp.isActive)
             {
-                //printf("queue finished: %d\n", INPUT_QUEUE_FINISHED);
                 if (INPUT_QUEUE_FINISHED == false)
                 {
                     for (int i = 0 ; i < INPUT_QUEUE_COUNT ; i++)
@@ -386,7 +361,6 @@ void initialize(void)
                         if (i < MAX_INPUT_COUNT)
                         {
                             Input input = INPUT_QUEUE[i];
-                            //printf("inputs[%d], input type: %d\n", i, input.type);
                             if (input.type == 0)
                             {
                                 CGPoint point = CGPointMake(input.x, NSApp.windows[input.window_index].contentView.frame.size.height - input.y + [NSApp.windows[input.window_index] titlebarHeight]);
@@ -421,7 +395,7 @@ void initialize(void)
         }
     });
     
-    /*
+    
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
     {
         for (;;)
@@ -433,20 +407,73 @@ void initialize(void)
                 {
                     if (i < MAX_FUNCTION_COUNT)
                     {
-                        RemoteFunctionCall func = FUNCTION_QUEUE[i];
-                        if (func.type == 0)
-                        {
-                            ((r_void_p_void_f*)func.address)();
-                            printf("Calling %p()\n", func.address);
-                            func.finished = true;
-                            func.finished = true;
-                        }
-                        if (func.type == 1)
-                        {
-                            printf("Calling %p(%p)\n", func.address, ((long*)(func.arguments))[0]);
-                            ((r_void_p_long_f*)func.address)(((long*)(func.arguments))[0]);
-                            func.finished = true;
-                        }
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            RemoteFunctionCall func = FUNCTION_QUEUE[i];
+                            if (func.type == 0)
+                            {
+                                ((r_void_p_void_f*)func.address)();
+                                func.finished = true;
+                            }
+                            if (func.type == 1)
+                            {
+                                long arg1 = ((long*)func.arguments)[0];
+                                ((r_void_p_long_f*)func.address)(arg1);
+                                func.finished = true;
+                            }
+                            if (func.type == 2)
+                            {
+                                long arg1 = ((long*)func.arguments)[0];
+                                long arg2 = ((long*)func.arguments)[1];
+                                ((r_void_p_long_long_f*)func.address)(arg1, arg2);
+                                func.finished = true;
+                            }
+                            if (func.type == 3)
+                            {
+                                long arg1 = ((long*)func.arguments)[0];
+                                long arg2 = ((long*)func.arguments)[1];
+                                long arg3 = ((long*)func.arguments)[2];
+                                ((r_void_p_long_long_long_f*)func.address)(arg1, arg2, arg3);
+                                func.finished = true;
+                            }
+                            if (func.type == 4)
+                            {
+                                long arg1 = ((long*)func.arguments)[0];
+                                long arg2 = ((long*)func.arguments)[1];
+                                long arg3 = ((long*)func.arguments)[2];
+                                long arg4 = ((long*)func.arguments)[3];
+                                ((r_void_p_long_long_long_long_f*)func.address)(arg1, arg2, arg3, arg4);
+                                func.finished = true;
+                            }
+                            if (func.type == 5)
+                            {
+                                long arg1 = ((long*)func.arguments)[0];
+                                long arg2 = ((long*)func.arguments)[1];
+                                long arg3 = ((long*)func.arguments)[2];
+                                long arg4 = ((long*)func.arguments)[3];
+                                long arg5 = ((long*)func.arguments)[4];
+                                ((r_void_p_long_long_long_long_long_f*)func.address)(arg1, arg2, arg3, arg4, arg5);
+                                func.finished = true;
+                            }
+                            if (func.type == 6)
+                            {
+                                long arg1 = ((long*)func.arguments)[0];
+                                long arg2 = ((long*)func.arguments)[1];
+                                long arg3 = ((long*)func.arguments)[2];
+                                long arg4 = ((long*)func.arguments)[3];
+                                long arg5 = ((long*)func.arguments)[4];
+                                long arg6 = ((long*)func.arguments)[5];
+                                ((r_void_p_long_long_long_long_long_long_f*)func.address)(arg1, arg2, arg3, arg4, arg5, arg6);
+                                func.finished = true;
+                            }
+                            if (func.type == 7)
+                            {
+                                long arg1 = ((long*)func.arguments)[0];
+                                float arg2 = ((float*)func.arguments + 8)[0];
+                                ((r_void_p_long_float_f*)func.address)(arg1, arg2);
+                                func.finished = true;
+                            }
+                        });
+                        
                     }
                 }
                 FUNCTION_QUEUE_COUNT = 0;
@@ -454,23 +481,7 @@ void initialize(void)
             }
         }
     });
-    */
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
-    {
-        for (;;)
-        {
-            usleep(AIMBOT_USLEEP_TIME);
-            if (NSApp.isActive)
-            {
-                if (AIMBOT_ENABLED)
-                {
-                    CGPoint point = CGPointMake(AIMBOT_X, NSApp.windows[0].contentView.frame.size.height - AIMBOT_Y + [NSApp.windows[0] titlebarHeight]);
-                    moveMouseOnWindow(NSApp.windows[0], point);
-                    [NSApp.windows[0] sendEvent:[NSEvent mouseEventWithType:NSEventTypeMouseMoved location:NSPointFromCGPoint(point) modifierFlags:0 timestamp:0 windowNumber:0 context:NULL eventNumber:0 clickCount:0 pressure:0]];
-                }
-            }
-        }
-    });
+    
     
     
 }
