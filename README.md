@@ -18,7 +18,7 @@ cd /path/to/RobloxCheatsFolder/
 ***open a new terminal window*** <br>
 ```
 cd /path/to/RobloxCheatsFolder/
-./RobloxCheats<br>
+./RobloxCheats
 ```
 
 ## Images
