@@ -21,7 +21,7 @@ cd /path/to/RobloxCheatsFolder/
 ***To run RobloxCheats:***
 ```
 cd /path/to/RobloxCheatsFolder/
-./RobloxCheats \[parameters\]
+./RobloxCheats [parameters]
 ```
 
 ## Images
