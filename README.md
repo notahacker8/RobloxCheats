@@ -12,12 +12,12 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 
 ## Usage (Terminal)
 ```
-cd /path/to/RobloxCheatsFolder/<br>
-./RobloxShell<br>
+cd /path/to/RobloxCheatsFolder/
+./RobloxShell
 ```
 ***open a new terminal window*** <br>
 ```
-cd /path/to/RobloxCheatsFolder/<br>
+cd /path/to/RobloxCheatsFolder/
 ./RobloxCheats<br>
 ```
 
