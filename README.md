@@ -3,6 +3,9 @@ Cheating tool for Roblox (macOS M1)<br>
 This is actually the 2nd version of the cheat. The original is actually from my [<b>libHack.dylib</b>](https://github.com/notahacker8/libHack) project.<br>
 This project was rebuilt to be more flexible with updates and crash the application less.<br>
 
+***download the folder here***
+[RobloxCheatsFolder.zip](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheatsFolder.zip)
+
 ## Notes
  - <b>libESP.dylib</b> controls all in-app inputs, ESP, and function calls
   - <b>RobloxCheats</b> is the actual executable to run after libESP.dylib is injected into Roblox
