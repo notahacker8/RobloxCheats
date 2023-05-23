@@ -30,4 +30,5 @@ cd /path/to/RobloxCheatsFolder/
 ![Doors](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Doors.png)
 ![Phantom-Forces](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Phantom-Forces.png)
 ![Jailbreak](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Jailbreak.png)
+![Blox-Fruits](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Blox-Fruits.png)
 
