@@ -7,7 +7,7 @@ This project was rebuilt to be more flexible with updates and crash the applicat
  - <b>libESP.dylib</b> controls all in-app inputs, ESP, and function calls
   - <b>RobloxCheats</b> is the actual executable to run after libESP.dylib is injected into Roblox
  - Run <b>find_object_offsets()</b> and <b>find_function_offsets()</b> in https://www.roblox.com/games/5332389196/Hack-Tests to update the offsets. (You will not need to inject libESP.dylib for this)
- - Compile libESP for the architecture of Roblox
+ - Compile libESP.dylib for the architecture of Roblox
  - Change the file paths at the top of main.m for <b>YOUR</b> machine.
 
 ## Images
