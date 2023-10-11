@@ -15,6 +15,5 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 ![Arsenal](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Arsenal.png)
 ![Doors](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Doors.png)
 ![Phantom-Forces](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Phantom-Forces.png)
-![Jailbreak](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Jailbreak.png)
 ![Blox-Fruits](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Blox-Fruits.png)
 
