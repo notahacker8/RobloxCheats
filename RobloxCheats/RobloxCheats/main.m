@@ -382,6 +382,7 @@ void patch_roblox_file(void)
     if (file_bytes)
     {
         //Instructions of the function that check if we manipulate the __TEXT segment.
+        //Use BitSlicer, check read accesses to a random address of the __TEXT segment (eg. base address)
         //Not needed for the Rosetta version of Roblox
         char RET[4] = {"\xc0\x03\x5f\xd6"};
         char bytes_to_find[8] = {"\x84\x16\xc1\x6c\x80\x94\xa2\x0e"};
