@@ -2,6 +2,7 @@
 Cheating tool for MacOS Roblox, mainly for the upcoming native version of roblox<br>
 This is actually the 2nd version of the cheat. The original is actually from my [libHack.dylib](https://github.com/notahacker8/libHack) project.<br>
 This project was rebuilt to be more flexible with updates and crash the application less.<br>
+It also features speech recognition to run commands for some cheats. ("Jarvis")<br>
 
 ## Notes
  - <b>libESP.dylib</b> controls all in-app inputs, ESP, and function calls
