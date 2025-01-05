@@ -11,6 +11,7 @@ It also features speech recognition to run commands for some cheats. ("Jarvis")<
  - Run <b>patch_roblox_file()</b> before opening roblox to allow for flying and breakpoints.
  - Compile libESP.dylib for the architecture of Roblox
  - Change the file paths at the top of main.m for <b>YOUR</b> machine.
+ - It is recommended to use <b>DYLD_INSERT_LIBRARIES</b> inside a shell script to run roblox with libESP.dylib.
 
 ## Images
 
