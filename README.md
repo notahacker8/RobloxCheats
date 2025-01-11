@@ -14,11 +14,6 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 
 ## Images
 
-![Arsenal](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Arsenal.png)
-
-
-https://github.com/notahacker8/RobloxCheats/assets/77363964/eb363a19-4ced-4be2-894a-def50e1c608a
-
 
 ![Blox-Fruits](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Blox-Fruits.png)
 
