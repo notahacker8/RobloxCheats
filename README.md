@@ -19,10 +19,7 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 
 https://github.com/user-attachments/assets/e5af78ba-7182-4784-b838-902b90e68fac
 
-
-
-![Blox-Fruits](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats-SampleImages/Blox-Fruits.png)
-
+<img width="1440" alt="Blox-Fruits" src="https://github.com/user-attachments/assets/8bd2e10c-1927-4832-9db7-fbe3c2314779" />
 
 https://github.com/notahacker8/RobloxCheats/assets/77363964/d6579f8f-89bf-47d2-81c3-8a7ee9b64234
 
