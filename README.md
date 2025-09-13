@@ -30,9 +30,13 @@ https://github.com/user-attachments/assets/e5af78ba-7182-4784-b838-902b90e68fac
 
 <img width="1440" alt="Blox-Fruits" src="https://github.com/user-attachments/assets/8bd2e10c-1927-4832-9db7-fbe3c2314779" />
 
-https://github.com/notahacker8/RobloxCheats/assets/77363964/d6579f8f-89bf-47d2-81c3-8a7ee9b64234
+https://github.com/user-attachments/assets/bdddfabc-4387-4294-8a38-db2c322bd4df
 
-https://github.com/user-attachments/assets/e2531c41-8829-4f38-b5de-bb2c90236920
+https://github.com/user-attachments/assets/831cf822-319b-4ea2-af0f-e5e00e6b8af3
+
+<img width="1440" height="900" alt="Screenshot 2025-09-12 at 7 25 59 PM" src="https://github.com/user-attachments/assets/2a705eab-06f2-42af-962a-0b36a20e368a" />
+
+<img width="820" height="744" alt="Screenshot 2025-09-12 at 7 13 27 PM copy" src="https://github.com/user-attachments/assets/49561f16-7e81-431f-ac7f-0c3765eb2078" />
 
 
 
