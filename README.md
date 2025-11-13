@@ -11,7 +11,6 @@ This project was rebuilt to be more flexible with updates and crash the applicat
  - Compile libESP.dylib for the architecture of Roblox. (You can check this by executing the command: file /path/to/RobloxPlayer)
  - Change the file paths at the top of main.m for <b>YOUR</b> machine.
  - It is recommended to use <b>DYLD_INSERT_LIBRARIES</b> inside a shell script to run roblox with libESP.dylib
- - <b> Retired on 10/8/2025, Mac broke :( </b>
 
 ## Steps for setting up
 
