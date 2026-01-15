@@ -12,6 +12,7 @@ This project was rebuilt to be more flexible with updates and crash the applicat
  - Change the file paths at the top of main.m for <b>YOUR</b> machine.
  - It is recommended to use <b>DYLD_INSERT_LIBRARIES</b> inside a shell script to run roblox with libESP.dylib
  - [Misc/lasso-tool.html](https://github.com/notahacker8/RobloxCheats/blob/main/RobloxCheats/RobloxCheats/Misc/lasso-tool.html) is used to find the coordinates of image crops. For retina display, captured images of the window will be twice the size of the actual window.
+ - Dylib tools appear at the top menu bar as "Tools" in the injected Roblox app.
 
 ## Steps for setting up
 
