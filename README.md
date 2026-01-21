@@ -31,14 +31,9 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 
 <img width="1440" alt="Blox-Fruits" src="https://github.com/user-attachments/assets/8bd2e10c-1927-4832-9db7-fbe3c2314779" />
 
-https://github.com/user-attachments/assets/bdddfabc-4387-4294-8a38-db2c322bd4df
-
 https://github.com/user-attachments/assets/831cf822-319b-4ea2-af0f-e5e00e6b8af3
 
-
 https://github.com/user-attachments/assets/3c343ca5-448c-43dc-9a67-f371c029cb76
-
-
 
 <img width="1440" height="900" alt="Screenshot 2025-09-12 at 7 25 59 PM" src="https://github.com/user-attachments/assets/2a705eab-06f2-42af-962a-0b36a20e368a" />
 
