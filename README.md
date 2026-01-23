@@ -6,8 +6,7 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 ## Notes
  - <b>libESP.dylib</b> controls all in-app inputs, ESP, and function calls
   - <b>RobloxCheats</b> is the actual executable to run after libESP.dylib is injected into Roblox
- - Run <b>find_object_offsets()</b> in https://www.roblox.com/games/15816797935/Hacker-Testing to update the offsets.
- - Run <b>patch_roblox_file()</b> before opening roblox to allow for flying and breakpoints. (Not needed as of now)
+ - Run <b>find_object_offsets()</b> and <b>find_object_pointee_offsets()</b> in https://www.roblox.com/games/15816797935/Hacker-Testing to update the offsets.
  - Compile libESP.dylib for the architecture of Roblox. (You can check this by executing the command: file /path/to/RobloxPlayer)
  - Change the file paths at the top of main.m for <b>YOUR</b> machine.
  - It is recommended to use <b>DYLD_INSERT_LIBRARIES</b> inside a shell script to run roblox with libESP.dylib
