@@ -13,10 +13,7 @@ void phantom_forces_cheat(task_t task)
     
     static float aimbot_size = 15;
     static float max_dist = 400;
-    
     static float inacc = 0;
-    
-    static float target_character_part_volume = 2 * 2 * 1; //Heads is 1 * 1 * 1
     
     static useconds_t esput = 1000;
     
@@ -32,14 +29,8 @@ void phantom_forces_cheat(task_t task)
     //rbx_print_descendants(task, workspace, 0, 3);
     vm_address_t camera = rbx_instance_find_first_child_of_class(task, workspace, "Camera");
     //rbx_print_descendants(task, camera, 0, 1);
-    vm_address_t players_service = rbx_instance_find_first_child_of_class(task, game, "Players");
-    vm_address_t teams_service = rbx_instance_find_first_child_of_class(task, game, "Teams");
-    vm_address_t phantoms_team = rbx_instance_find_first_child(task, teams_service, "Phantoms");
-    vm_address_t ghosts_team = rbx_instance_find_first_child(task, teams_service, "Ghosts");
-    vm_address_t local_player = rbx_instance_find_first_child_of_class(task, players_service, "Player");
     
     static vm_address_t my_character = 0;
-    static vm_address_t my_head = 0;
     static vm_address_t my_hrp = 0;
     
     static vm_address_t closest_enemy_torso = 0;
@@ -107,14 +98,16 @@ void phantom_forces_cheat(task_t task)
                 if (camera_child_count > 0)
                 {
                     vm_address_t main = camera_children[camera_child_count - 1].child_address;
+                    //rbx_print_descendants(task, main, 0, 1);
                     new_camera_part = rbx_instance_find_first_child_by_pointee(task, camera, task_base_address, RBX_OBJECT_Part_POINTEE_OFFSET);
                     new_camera_part_cframe_address = rbx_basepart_get_properties_address(task, camera_part) + RBX_BASEPART_PROPERTIES_CFRAME_OFFSET;
                     
                     FOR_EACH_CHILD(main, i, {
+                        //rbx_print_descendants(task, child, 0, 0);
                         if (rbx_instance_is_named(task, child, "Handle"))
                         {
                             new_handle = child;
-                            new_handle_cframe_address = rbx_basepart_get_properties_address(task, handle) + RBX_BASEPART_PROPERTIES_CFRAME_OFFSET;
+                            new_handle_cframe_address = rbx_basepart_get_properties_address(task, new_handle) + RBX_BASEPART_PROPERTIES_CFRAME_OFFSET;
                         }
                         if (vm_read_uint64_t_value(task, child) == task_base_address + RBX_OBJECT_Part_POINTEE_OFFSET)
                         {
@@ -123,7 +116,6 @@ void phantom_forces_cheat(task_t task)
                             {
                                 new_trigger = child;
                                 new_trigger_cframe_address = rbx_basepart_get_properties_address(task, trigger) + RBX_BASEPART_PROPERTIES_CFRAME_OFFSET;
-                                i = child_count;
                             }
                         }
                     })
@@ -153,7 +145,7 @@ void phantom_forces_cheat(task_t task)
             vm_address_t __cet = 0;
             vm_address_t __cet_cfa = 0;
             
-            float old_delta_dist = aimbot_size;
+            float old_delta_dist =  handle ? 25 : aimbot_size;
             float old_dist = handle ? 25 : max_dist;
             
             int esp_part_index = 0;
@@ -166,12 +158,26 @@ void phantom_forces_cheat(task_t task)
                 {
                     //vm_address_t torso = rbx_instance_find_first_child_of_class(task, enemy, "Part");
                     //vm_address_t torso = pf_get_character_part_by_volume(task, task_base_address, enemy, target_character_part_volume);
-                    vm_address_t torso = rbx_instance_find_first_child_by_pointee(task, enemy, task_base_address, RBX_OBJECT_Part_POINTEE_OFFSET);
+                    //vm_address_t torso = rbx_instance_find_first_child_by_pointee(task, enemy, task_base_address, RBX_OBJECT_Part_POINTEE_OFFSET);
+                    
+                    vm_address_t __head = 0;
+                    vm_address_t __torso = 0;
+                    
+                    vm_address_t torso = 0;
+                    
+                    FOR_EACH_CHILD(enemy, x, {
+                        if (rbx_instance_find_first_child_by_pointee(task, child, task_base_address, RBX_OBJECT_BillboardGui_POINTEE_OFFSET))
+                        {
+                            __head = child;
+                            x = child_count;
+                        }
+                    })
+                    torso = __head;
                     
                     char enemy_name_text[100];
                     bzero(enemy_name_text, 100);
                     
-                    FOR_EACH_DESCENDANT(task, enemy, 1000, 4, i, {
+                    FOR_EACH_DESCENDANT(task, enemy, 1000, 3, x, {
                         //if (rbx_instance_is_a(task, obj, "TextLabel"))
                         if (rbx_instance_get_pointee_offset(task, obj, task_base_address) == RBX_OBJECT_TextLabel_POINTEE_OFFSET)
                         {
@@ -182,7 +188,7 @@ void phantom_forces_cheat(task_t task)
                                 strcpy(enemy_name_text, enemy_name);
                                 vm_deallocate(mach_task_self_, (vm_address_t)enemy_name, enemy_name_l);
                             }
-                            i = descendant_count;
+                            x = descendant_count;
                         }
                     })
                     
@@ -207,6 +213,7 @@ void phantom_forces_cheat(task_t task)
                         {
                             __cet = torso;
                             __cet_cfa = rbx_basepart_get_properties_address(task, __cet) + RBX_BASEPART_PROPERTIES_CFRAME_OFFSET;
+                            
                             //old_dist = dist;
                             old_delta_dist = delta_dist;
                         }
@@ -253,7 +260,8 @@ void phantom_forces_cheat(task_t task)
     
 #pragma mark - Aimbot -
     
-    
+    const float muzzle_vel = 3000; //Assumed
+    const float g = 9.81;
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^
                    {
@@ -264,13 +272,13 @@ void phantom_forces_cheat(task_t task)
             int __new_cf_ut_2 = 10000;
             if (aimbot_enabled)
             {
-                if (closest_enemy_torso)
+                if (closest_enemy_torso && trigger)
                 {
                     if (shared_memory->LEFT_MOUSE_DOWN || shared_memory->LEFT_MOUSE_DOWN_ONCE)
                     {
                         if (handle)
                         {
-                            __new_cf_ut_2 = 1;
+                            __new_cf_ut_2 = 0;
                             __new_cf_wm = 2;
                             
                         }
@@ -300,8 +308,13 @@ void phantom_forces_cheat(task_t task)
                             
                             //printf("%f, %f, %f\n", rnum1_f, rnum2_f, rnum3_f);
                             
-                            vector3_t torso_velocity = rbx_basepart_get_velocity(task, closest_enemy_torso);
-                            torso_cframe.pos = vector3_add(torso_cframe.pos, torso_velocity);
+                            float dist = vector3_dist_dif(torso_cframe.pos, trigger_cframe.pos);
+                            
+                            //Add due to kinematics of bullet drop.
+                            float bullet_drop_add = (0.5) * (g) * (dist/muzzle_vel);
+                            torso_cframe.pos.y += bullet_drop_add;
+                            
+                            //printf("bullet drop: %f\n", bullet_drop_add);
                             
                             vector3_t new_trigger_look_vector = vector3_direction_to_from(torso_cframe.pos, trigger_cframe.pos);
                             
@@ -359,10 +372,10 @@ void phantom_forces_cheat(task_t task)
         {
             if (shared_memory->LEFT_MOUSE_DOWN_ONCE)
             {
-                usleep(200000);
+                usleep(300000);
                 shared_memory->LEFT_MOUSE_DOWN_ONCE = false;
             }
-            usleep(1000);
+            usleep(10000);
         }
     });
     
@@ -441,14 +454,6 @@ void phantom_forces_cheat(task_t task)
         INSERT_STDIN_MULTIARG_INPUT("inacc %f", "", {
             printf("SET AIMBOT INACCURACY TO %f\n", inacc);
         }, 1, &inacc);
-        INSERT_STDIN_INPUT_SIMPLE("heads", "//ignored", {
-            target_character_part_volume = 1;
-            printf("TARGETTING HEADS\n");
-        })
-        INSERT_STDIN_INPUT_SIMPLE("torsos", "//ignored", {
-            target_character_part_volume = 4;
-            printf("TARGETTING TORSOS\n");
-        })
         INSERT_STDIN_INPUT_SIMPLE("ts", "//switch target team", {
             __t__idx = !__t__idx;
             printf("SWITCHED TARGET TEAM\n");
