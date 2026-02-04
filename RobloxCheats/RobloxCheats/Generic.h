@@ -23,7 +23,7 @@ void generic_cheat(task_t task)
     GENERIC_CHEAT_STARTER
     
     
-    static char esp_objs_1_appended_names[300 * MAX_ESP_COUNT];
+    static char esp_objs_1_appended_names[MAX_ESP_TEXT_LENGTH * MAX_ESP_COUNT];
     static vm_address_t esp_objs_1_parts[300];
     static long esp_objs_1_count = 0;
     
