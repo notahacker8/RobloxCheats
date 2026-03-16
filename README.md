@@ -6,6 +6,7 @@ This project was rebuilt to be more flexible with updates and crash the applicat
 ## Notes
  - <b>libESP.dylib</b> controls all in-app inputs, ESP, and function calls
   - <b>RobloxCheats</b> is the actual executable to run after libESP.dylib is injected into Roblox
+  - <b>ExternalESPHelper</b> is an application helper tool used for external ESP. It is not needed, but if internal ESP results in buggy game behaviour, you may want to use it.
  - Run <b>find_object_offsets()</b> and <b>find_object_pointee_offsets()</b> <b>SEPARATELY</b> in https://www.roblox.com/games/15816797935/Hacker-Testing to update the offsets. You will need to run Roblox from the command line for this.
  - Compile libESP.dylib for the architecture of Roblox. (You can check this by executing the command: file /path/to/RobloxPlayer)
  - Change the file paths at the top of main.m for <b>YOUR</b> machine.
