@@ -1,9 +1,3 @@
-//
-//  AppDelegate.m
-//  ExternalESPHelper
-//
-//  Created by Dimitri Armendariz on 3/15/26.
-//
 
 #import "AppDelegate.h"
 
